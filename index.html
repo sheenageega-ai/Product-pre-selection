@@ -4,59 +4,173 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Committee Product Selection</title>
-    <!-- Tailwind CSS for robust mobile grid visuals -->
+    <!-- Tailwind CSS for robust mobile grid layouts -->
     <script src="https://tailwindcss.com"></script>
 </head>
-<body class="bg-slate-100 min-h-screen p-3 md:p-6 flex flex-col justify-between">
+<body class="bg-slate-50 min-h-screen p-4 md:p-8">
 
-    <div class="max-w-4xl mx-auto w-full bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col flex-grow">
-        <div class="pb-3 border-b border-slate-100 mb-4">
-            <h1 class="text-xl font-bold text-slate-900 tracking-tight">Product Selection Portal</h1>
-            <p class="text-xs text-slate-500 mt-0.5">Review the active Pre-selection collection items directly inside the master data grid below.</p>
+    <div class="max-w-5xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
+        <div class="border-b border-slate-100 pb-4 mb-6">
+            <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Product Selection Portal</h1>
+            <p class="text-sm text-slate-500 mt-1">Review the pre-selected collections below and tick your choices to compile your response.</p>
         </div>
         
-        <!-- Live Embedded Spreadsheet Frame Component -->
-        <div class="w-full flex-grow min-h-[450px] bg-slate-50 border border-slate-200 rounded-xl overflow-hidden relative shadow-inner">
-            <iframe 
-                src="https://google.com" 
-                class="absolute inset-0 w-full h-full border-0"
-                allowfullscreen>
-            </iframe>
+        <!-- Product Grid Space -->
+        <div id="product-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div class="col-span-full text-center py-12">
+                <p class="text-slate-400 font-medium animate-pulse">Synchronizing with Master Sheet...</p>
+            </div>
         </div>
 
-        <!-- Committee Compilation Interface Hub -->
-        <div class="mt-4 pt-4 border-t border-slate-100 space-y-3">
-            <div>
-                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Enter Selected Item SKUs or Names:</label>
-                <textarea 
-                    id="selection-box" 
-                    rows="2" 
-                    placeholder="Type or paste the chosen SKU numbers here (e.g., SKU-101, SKU-104)..." 
-                    class="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm bg-slate-50 transition-all placeholder:text-slate-400"></textarea>
-            </div>
-
-            <button onclick="sendSelectionViaWhatsApp()" class="w-full flex items-center justify-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3.5 px-4 rounded-xl shadow-md transition-all focus:ring-4 focus:ring-emerald-100 text-sm">
-                <span>Submit Chosen Items via WhatsApp</span>
+        <!-- Submission Controls -->
+        <div class="mt-8 pt-4 border-t border-slate-100">
+            <button onclick="sendSelection()" class="w-full flex items-center justify-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-4 px-4 rounded-xl shadow-sm transition-all focus:ring-4 focus:ring-emerald-100 text-base">
+                <span>Send Final Selection via WhatsApp</span>
             </button>
         </div>
     </div>
 
     <script>
-        function sendSelectionViaWhatsApp() {
-            const textInput = document.getElementById('selection-box').value.trim();
-            if (!textInput) {
-                alert('Please enter at least one selected SKU or item description in the text workspace before compiling.');
+        let globalProducts = [];
+
+        // Advanced loading engine using public API routing to bypass cross-domain blocks natively
+        function loadSheetDataViaJSONP() {
+            const sheetId = '1vQwWaiS8BAIcm8zqhn2fWTpeRJJpTJdAi9_JCNcy8cL15Ram2jtCuIpfyh76RFgllOYFKNdoimn68kk';
+            const jsonpUrl = `https://google.com{sheetId}/gviz/tq?tqx=responseHandler:processData`;
+            
+            const script = document.createElement('script');
+            script.src = jsonpUrl;
+            document.body.appendChild(script);
+        }
+
+        // Processing loop designed to parse structural cloud cells securely
+        window.processData = function(response) {
+            try {
+                const data = response.table;
+                const columns = data.cols.map(c => c.label ? c.label.trim().toLowerCase() : '');
+                
+                // Identify target cell positions dynamically
+                const idIdx = columns.findIndex(c => c.includes('sku') || c.includes('id'));
+                const nameIdx = columns.findIndex(c => c.includes('collectionname') || c.includes('name'));
+                const priceIdx = columns.findIndex(c => c.includes('resellprice') || c.includes('price'));
+                const imgIdx = columns.findIndex(c => c.includes('imageurl') || c.includes('picture') || c.includes('link'));
+                const statusIdx = columns.findIndex(c => c.includes('status'));
+
+                const rows = data.rows.map(r => {
+                    const obj = {};
+                    columns.forEach((col, idx) => {
+                        const cell = r.c[idx];
+                        obj[col] = cell ? (cell.v !== null ? cell.v.toString() : '') : '';
+                    });
+                    return obj;
+                });
+
+                renderCatalog(rows, columns, idIdx, nameIdx, priceIdx, imgIdx, statusIdx);
+            } catch (e) {
+                showErrorState("Parsing data failure.");
+            }
+        };
+
+        function formatDriveImageUrl(rawUrl) {
+            if (!rawUrl) return "";
+            const cleanUrl = rawUrl.trim();
+            if (cleanUrl.includes('://google.com')) {
+                let fileId = "";
+                if (cleanUrl.includes('/d/')) {
+                    const parts = cleanUrl.split('/d/');
+                    if (parts && parts[1]) fileId = parts[1].split('/')[0].split('?')[0];
+                } else if (cleanUrl.includes('id=')) {
+                    const parts = cleanUrl.split('id=');
+                    if (parts && parts[1]) fileId = parts[1].split('&')[0];
+                }
+                if (fileId) return `https://googleusercontent.com{fileId}`;
+            }
+            return cleanUrl;
+        }
+
+        function renderCatalog(rows, columns, idIdx, nameIdx, priceIdx, imgIdx, statusIdx) {
+            const container = document.getElementById('product-container');
+            container.innerHTML = '';
+            globalProducts = [];
+
+            const idKey = columns[idIdx] || 'sku';
+            const nameKey = columns[nameIdx] || 'collection name';
+            const priceKey = columns[priceIdx] || 'resell price (mur)';
+            const imgKey = columns[imgIdx] || 'image url';
+            const statusKey = columns[statusIdx] || 'status';
+
+            // Filter out products matching the active Pre-selection status label
+            const cleanRows = rows.filter(row => {
+                const val = row[statusKey] || '';
+                return val.toLowerCase().includes('pre-selection') || val.toLowerCase().includes('preselection');
+            });
+
+            if (cleanRows.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full text-center py-12 bg-slate-50 rounded-xl border border-dashed border-slate-200 px-4">
+                        <p class="text-slate-500 font-semibold text-base">No active items ready for review.</p>
+                        <p class="text-xs text-slate-400 mt-1">Make sure you have typed "Pre-selection" in your spreadsheet rows under the Status column.</p>
+                    </div>`;
+                return;
+            }
+
+            cleanRows.forEach((row, index) => {
+                const id = row[idKey] || `SKU-${index}`;
+                const name = row[nameKey] || "Unnamed Collection";
+                const price = row[priceKey] || "0.00";
+                const rawImgUrl = row[imgKey];
+                const imgUrl = formatDriveImageUrl(rawImgUrl) || "https://unsplash.com";
+
+                globalProducts.push({ id, name, price });
+
+                const cardHtml = `
+                    <label class="group relative flex flex-col justify-between p-5 bg-white border border-slate-200 rounded-2xl cursor-pointer hover:border-emerald-500 hover:shadow-md transition-all duration-200 select-none bg-white">
+                        <div class="flex items-start space-x-3 mb-4">
+                            <input type="checkbox" value="${id}" class="w-5 h-5 mt-0.5 text-emerald-600 border-slate-300 rounded-lg focus:ring-emerald-500 accent-emerald-600 cursor-pointer">
+                            <div class="flex-1">
+                                <h3 class="font-bold text-slate-800 group-hover:text-emerald-900 transition-colors text-base leading-tight">${name}</h3>
+                                <p class="text-[11px] font-semibold text-slate-400 mt-1 uppercase tracking-wider font-mono">SKU: ${id}</p>
+                                <p class="text-base font-extrabold text-emerald-600 mt-1">MUR ${price}</p>
+                            </div>
+                        </div>
+                        <div class="w-full h-44 bg-slate-50 border border-slate-100 rounded-xl overflow-hidden mt-2">
+                            <img src="${imgUrl}" alt="${name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.src='https://unsplash.com'">
+                        </div>
+                    </label>
+                `;
+                container.innerHTML += cardHtml;
+            });
+        }
+
+        function sendSelection() {
+            const checkboxes = document.querySelectorAll('input[type="checkbox"]:checked');
+            if (checkboxes.length === 0) {
+                alert('Please check at least one product before submitting your selections.');
                 return;
             }
 
             let message = "📋 *Committee Selection Report* 📋\n\n";
-            message += `Selected Items:\n${textInput}\n\n`;
-            message += "Submitted via Selection Portal Link.";
+            checkboxes.forEach(cb => {
+                const match = globalProducts.find(p => p.id === cb.value);
+                if (match) {
+                    message += `✅ *${match.name}*\n   ↳ SKU: _${match.id}_ | Price: _MUR ${match.price}_\n\n`;
+                }
+            });
 
-            // Execute universal WhatsApp routing link endpoint
             const targetUrl = `https://wa.me{encodeURIComponent(message)}`;
             window.open(targetUrl, '_blank');
         }
+
+        function showErrorState(reason) {
+            document.getElementById('product-container').innerHTML = `
+                <div class="col-span-full text-center py-12 bg-red-50/50 border border-dashed border-red-200 rounded-xl px-4">
+                    <p class="text-red-600 font-semibold text-base">Database Sync Error</p>
+                    <p class="text-xs text-slate-400 mt-1">Reason: ${reason}</p>
+                </div>
+            `;
+        }
+
+        loadSheetDataViaJSONP();
     </script>
 </body>
 </html>

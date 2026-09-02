@@ -35,7 +35,7 @@
 
         // Alternative engine bypassing browser blocks by downloading data directly as pure text
         async function loadSheetDataDirectly() {
-            const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQwWaiS8BAIcm8zqhn2fWTpeRJJpTJdAi9_JCNcy8cL15Ram2jtCuIpfyh76RFgllOYFKNdoimn68kk/pub?gid=0&single=true&output=csv';
+            const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQwWaiS8BAIcm8zqhn2fWTpeRJJpTJdAi9_JCNcy8cL15Ram2jtCuIpfyh76RFgllOYFKNdoimn68kk/pub?gid=0&single=true&output=csv&cachebuster=123';
             
             try {
                 const response = await fetch(csvUrl);

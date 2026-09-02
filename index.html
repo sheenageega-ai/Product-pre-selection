@@ -4,92 +4,140 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Committee Product Selection</title>
-    <!-- Tailwind CSS for instant, beautiful styling -->
+    <!-- Tailwind CSS for styling -->
     <script src="https://tailwindcss.com"></script>
+    <!-- PapaParse to handle complex spreadsheet structures flawlessly -->
+    <script src="https://cloudflare.com"></script>
 </head>
-<body class="bg-gray-100 p-4">
+<body class="bg-gray-50 min-h-screen p-4 md:p-8">
 
-    <div class="max-w-md mx-auto bg-white p-6 rounded-xl shadow-md">
-        <h1 class="text-2xl font-bold mb-2 text-gray-800">Product Selection</h1>
-        <p class="text-sm text-gray-500 mb-6">Select the products to submit via WhatsApp.</p>
+    <div class="max-w-2xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100">
+        <div class="border-b border-gray-100 pb-4 mb-6">
+            <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Product Selection Portal</h1>
+            <p class="text-sm text-gray-500 mt-1">Review items and check boxes to compile your committee response.</p>
+        </div>
         
-        <!-- Product Grid Container -->
-        <div id="product-container" class="space-y-4">
-            <p class="text-gray-400 animate-pulse">Loading products...</p>
+        <!-- Interactive Card Space -->
+        <div id="product-container" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="col-span-full text-center py-12">
+                <p class="text-gray-400 font-medium animate-pulse">Synchronizing with Master Sheet...</p>
+            </div>
         </div>
 
-        <!-- Submit Button -->
-        <button onclick="sendSelection()" class="w-full mt-6 bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg shadow transition">
-            Send Selection via WhatsApp
-        </button>
+        <!-- Submit Hub -->
+        <div class="mt-8 pt-4 border-t border-gray-100">
+            <button onclick="sendSelection()" class="w-full flex items-center justify-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3.5 px-4 rounded-xl shadow-sm transition-all focus:ring-4 focus:ring-emerald-100">
+                <span>Send Final Selection via WhatsApp</span>
+            </button>
+        </div>
     </div>
 
     <script>
-        // REPLACE THIS WITH YOUR ACTUAL GOOGLE SHEET CSV EXPORT LINK
-        const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQwWaiS8BAIcm8zqhn2fWTpeRJJpTJdAi9_JCNcy8cL15Ram2jtCuIpfyh76RFgllOYFKNdoimn68kk/pub?output=csv';
+        // REPLACE THIS URL WITH YOUR GOOGLE SHEET CSV LINK ONLY IF IT LOGS EMPTY ERRORS
+        const SHEET_URL = 'https://google.com';
 
-        let products = [];
+        let globalProducts = [];
 
-        async function loadProducts() {
+        async function initPortal() {
             try {
                 const response = await fetch(SHEET_URL);
-                const data = await response.text();
+                if (!response.ok) throw new Error("Data stream blocked");
                 
-                // Simple CSV parser
-                const rows = data.split('\n').slice(1); 
-                const container = document.getElementById('product-container');
-                container.innerHTML = '';
-
-                rows.forEach((row, index) => {
-                    const columns = row.split(',');
-                    if (columns.length < 5) return;
-
-                    const [id, name, imageUrl, price, status] = columns.map(col => col.trim());
-
-                    // ONLY show items marked as Pre-selection
-                    if (status.toLowerCase() === 'pre-selection') {
-                        products.push({ id, name, price });
-
-                        const card = `
-                            <label class="flex items-center p-3 border rounded-xl hover:bg-gray-50 cursor-pointer transition space-x-4">
-                                <input type="checkbox" value="${id}" class="w-5 h-5 text-green-600 rounded focus:ring-green-500">
-                                <img src="${imageUrl}" alt="${name}" class="w-16 h-16 object-cover rounded-lg bg-gray-200">
-                                <div class="flex-1">
-                                    <h3 class="font-semibold text-gray-800">${name}</h3>
-                                    <p class="text-sm text-gray-500">Resell: $${price}</p>
-                                </div>
-                            </label>
-                        `;
-                        container.innerHTML += card;
+                const csvData = await response.text();
+                
+                // Advanced parser configuration
+                Papa.parse(csvData, {
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: function(results) {
+                        renderCatalog(results.data);
+                    },
+                    error: function(err) {
+                        showErrorState();
                     }
                 });
             } catch (error) {
-                document.getElementById('product-container').innerHTML = '<p class="text-red-500">Error loading products.</p>';
+                showErrorState();
             }
+        }
+
+        function renderCatalog(rows) {
+            const container = document.getElementById('product-container');
+            container.innerHTML = '';
+            globalProducts = [];
+
+            // Case-insensitive mapping to accommodate minor variations in naming columns
+            const cleanRows = rows.filter(row => {
+                const statusKey = Object.keys(row).find(k => k.toLowerCase() === 'status');
+                return row[statusKey] && row[statusKey].trim().toLowerCase() === 'pre-selection';
+            });
+
+            if (cleanRows.length === 0) {
+                container.innerHTML = `<p class="col-span-full text-center text-gray-400 py-8">No products found marked as "Pre-selection".</p>`;
+                return;
+            }
+
+            cleanRows.forEach((row, index) => {
+                // Safely resolve column headings regardless of casing
+                const nameKey = Object.keys(row).find(k => k.toLowerCase() === 'name' || k.toLowerCase() === 'product name');
+                const priceKey = Object.keys(row).find(k => k.toLowerCase() === 'price' || k.toLowerCase() === 'resell price');
+                const imgKey = Object.keys(row).find(k => k.toLowerCase() === 'imageurl' || k.toLowerCase() === 'picture' || k.toLowerCase() === 'image');
+                const idKey = Object.keys(row).find(k => k.toLowerCase() === 'id' || k.toLowerCase() === 'product id') || Object.keys(row)[0];
+
+                const id = row[idKey]?.trim() || index.toString();
+                const name = row[nameKey]?.trim() || "Unnamed Item";
+                const price = row[priceKey]?.trim() || "0.00";
+                const imgUrl = row[imgKey]?.trim() || "https://unsplash.com";
+
+                globalProducts.push({ id, name, price });
+
+                const cardHtml = `
+                    <label class="group relative flex flex-col justify-between p-4 bg-white border border-gray-200 rounded-2xl cursor-pointer hover:border-emerald-500 hover:shadow-sm transition-all duration-200 select-none">
+                        <div class="flex items-start space-x-3 mb-3">
+                            <input type="checkbox" value="${id}" class="w-5 h-5 mt-0.5 text-emerald-600 border-gray-300 rounded-lg focus:ring-emerald-500 accent-emerald-600">
+                            <div class="flex-1">
+                                <h3 class="font-semibold text-gray-800 group-hover:text-emerald-900 transition-colors text-sm leading-tight">${name}</h3>
+                                <p class="text-sm font-medium text-emerald-600 mt-1">Resell: ${price}</p>
+                            </div>
+                        </div>
+                        <div class="w-full h-36 bg-gray-50 border border-gray-100 rounded-xl overflow-hidden mt-auto">
+                            <img src="${imgUrl}" alt="${name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.src='https://unsplash.com'">
+                        </div>
+                    </label>
+                `;
+                container.innerHTML += cardHtml;
+            });
         }
 
         function sendSelection() {
             const checkboxes = document.querySelectorAll('input[type="checkbox"]:checked');
             if (checkboxes.length === 0) {
-                alert('Please select at least one product.');
+                alert('Please check at least one product before submitting.');
                 return;
             }
 
-            let message = "Selected Products:\n\n";
+            let message = "📋 *Committee Selections* 📋\n\n";
             checkboxes.forEach(cb => {
-                const prod = products.find(p => p.id === cb.value);
-                if (prod) {
-                    message += `- ${prod.name} ($${prod.price})\n`;
+                const match = globalProducts.find(p => p.id === cb.value);
+                if (match) {
+                    message += `✅ *${match.name}* (Price: ${match.price})\n`;
                 }
             });
 
-            // Creates a universal WhatsApp sharing link
-            const whatsappUrl = `https://wa.me{encodeURIComponent(message)}`;
-            window.open(whatsappUrl, '_blank');
+            const targetUrl = `https://wa.me{encodeURIComponent(message)}`;
+            window.open(targetUrl, '_blank');
         }
 
-        // Run setup on load
-        loadProducts();
+        function showErrorState() {
+            document.getElementById('product-container').innerHTML = `
+                <div class="col-span-full text-center py-8">
+                    <p class="text-red-500 font-medium">Failed to sync database.</p>
+                    <p class="text-xs text-gray-400 mt-1">Check that your sheet is shared as a CSV document.</p>
+                </div>
+            `;
+        }
+
+        initPortal();
     </script>
 </body>
 </html>

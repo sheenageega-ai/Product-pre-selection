@@ -3,59 +3,160 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Saree Collection Portal</title>
-    <!-- Tailwind CSS for clean mobile visuals -->
-    <script src="https://tailwindcss.com"></script>
+    <title>Saree Collection Selection Portal</title>
 </head>
-<body class="bg-slate-100 min-h-screen p-3 md:p-6 flex flex-col justify-between">
+<body style="background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding: 20px; color: #0f172a; margin: 0;">
 
-    <div class="max-w-4xl mx-auto w-full bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col flex-grow">
-        <div class="pb-3 border-b border-slate-100 mb-4">
-            <h1 class="text-xl font-bold text-slate-900 tracking-tight">Saree Selection Portal</h1>
-            <p class="text-xs text-slate-500 mt-0.5">Review the active Pre-selection collection items directly inside the master data grid below.</p>
+    <div style="max-width: 1100px; margin: 0 auto; background-color: #ffffff; padding: 30px; border-radius: 16px; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05); border: 1px solid #f1f5f9;">
+        <div style="border-bottom: 1px solid #f1f5f9; padding-bottom: 15px; margin-bottom: 25px;">
+            <h1 style="font-size: 24px; font-weight: 700; color: #0f172a; margin: 0;">Saree Collection Selection Portal</h1>
+            <p style="font-size: 14px; color: #64748b; margin: 5px 0 0 0;">Review the pre-selected pieces below and check boxes to compile your committee response.</p>
         </div>
         
-        <!-- Live Embedded Spreadsheet Frame Component -->
-        <div class="w-full flex-grow min-h-[450px] bg-slate-50 border border-slate-200 rounded-xl overflow-hidden relative shadow-inner">
-            <iframe 
-                src="https://google.com" 
-                class="absolute inset-0 w-full h-full border-0"
-                allowfullscreen>
-            </iframe>
+        <!-- Interactive Card Matrix Grid Container -->
+        <div id="product-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 24px;">
+            <div style="grid-column: 1 / -1; text-align: center; padding: 48px 0;">
+                <p style="color: #94a3b8; font-weight: 500;">Synchronizing with Master File Feed...</p>
+            </div>
         </div>
 
-        <!-- Committee Compilation Interface Hub -->
-        <div class="mt-4 pt-4 border-t border-slate-100 space-y-3">
-            <div>
-                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Enter Selected Item SKUs or Names:</label>
-                <textarea 
-                    id="selection-box" 
-                    rows="2" 
-                    placeholder="Type or paste the chosen SKU numbers here (e.g., KS-5621, KS-5625)..." 
-                    class="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 text-sm bg-slate-50 transition-all placeholder:text-slate-400"></textarea>
-            </div>
-
-            <button onclick="sendSelectionViaWhatsApp()" class="w-full flex items-center justify-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3.5 px-4 rounded-xl shadow-md text-sm">
-                <span>Submit Chosen Items via WhatsApp</span>
+        <!-- Submission Trigger Hub Control -->
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+            <button onclick="sendSelection()" style="width: 100%; display: flex; align-items: center; justify-content: center; background-color: #059669; color: #ffffff; font-weight: 600; padding: 14px 16px; border-radius: 12px; border: none; cursor: pointer; font-size: 16px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); transition: background-color 0.2s;">
+                Send Final Selection via WhatsApp
             </button>
         </div>
     </div>
 
     <script>
-        function sendSelectionViaWhatsApp() {
-            const textInput = document.getElementById('selection-box').value.trim();
-            if (!textInput) {
-                alert('Please enter at least one selected SKU or item description in the workspace before compiling.');
+        let globalProducts = [];
+
+        function loadSheetViaScript() {
+            const sheetId = '1vQwWaiS8BAIcm8zqhn2fWTpeRJJpTJdAi9_JCNcy8cL15Ram2jtCuIpfyh76RFgllOYFKNdoimn68kk';
+            const endpoint = "https://google.com" + sheetId + "/gviz/tq?tqx=responseHandler:processGoogleData&t=" + new Date().getTime();
+            const script = document.createElement('script');
+            script.src = endpoint;
+            document.body.appendChild(script);
+        }
+
+        window.processGoogleData = function(jsonResponse) {
+            try {
+                if (!jsonResponse || !jsonResponse.table) {
+                    showErrorState("Empty data payload returned from Google Cloud.");
+                    return;
+                }
+                const table = jsonResponse.table;
+                const headers = table.cols.map(c => c.label ? c.label.trim() : '');
+                const productRows = table.rows.map(r => {
+                    const rowData = {};
+                    headers.forEach((headerName, index) => {
+                        const cell = r.c[index];
+                        rowData[headerName] = cell ? (cell.v !== null ? cell.v.toString().trim() : '') : '';
+                    });
+                    return rowData;
+                });
+                renderCatalog(productRows);
+            } catch (err) {
+                showErrorState("Data parser matrix processing structural blueprint mismatch.");
+            }
+        };
+
+        function formatDriveImageUrl(rawUrl) {
+            if (!rawUrl) return "";
+            const cleanUrl = rawUrl.trim();
+            const driveKeyIndex = cleanUrl.indexOf("com1");
+            if (driveKeyIndex !== -1) {
+                const fileId = cleanUrl.substring(driveKeyIndex + 4).trim();
+                return "https://googleusercontent.com" + fileId;
+            }
+            if (cleanUrl.includes('://google.com')) {
+                let fileId = "";
+                if (cleanUrl.includes('/d/')) {
+                    const parts = cleanUrl.split('/d/');
+                    if (parts && parts[1]) fileId = parts[1].split('/')[0].split('?')[0];
+                }
+                if (fileId) return "https://googleusercontent.com" + fileId;
+            }
+            return cleanUrl;
+        }
+        function renderCatalog(rows) {
+            const container = document.getElementById('product-container');
+            container.innerHTML = '';
+            globalProducts = [];
+
+            const cleanRows = rows.filter(row => {
+                const statusValue = row['Status'] || '';
+                return statusValue.toLowerCase() === 'pre-selection';
+            });
+
+            if (cleanRows.length === 0) {
+                container.innerHTML = `
+                    <div style="grid-column: 1 / -1; text-align: center; padding: 48px 20px; background-color: #f8fafc; border-radius: 12px; border: 1px dashed #cbd5e1;">
+                        <p style="color: #64748b; font-weight: 600; font-size: 16px; margin: 0;">No active pre-selection items found.</p>
+                        <p style="color: #94a3b8; font-size: 12px; margin: 5px 0 0 0;">Verify that row records read exactly as "Pre-selection" under the Status column of your sheet.</p>
+                    </div>`;
                 return;
             }
 
-            let message = "📋 *Saree Collection Selection Report* 📋\n\n";
-            message += `Selected Items:\n${textInput}\n\n`;
-            message += "Submitted via Selection Portal Link.";
+            cleanRows.forEach((row, index) => {
+                const id = row['SKU'] || ("N/A-" + index);
+                const collectionName = row['Collection Name'] || "Saree Collection";
+                const sareeName = row['Saree Name / Number'] || "Unnamed Piece";
+                const price = row['Resell Price\n (MUR)'] || row['Resell Price (MUR)'] || "0.00";
+                const notes = row['Notes'] || "";
+                const rawImgUrl = row['Google Drive Share Link (paste here)'];
+                const imgUrl = formatDriveImageUrl(rawImgUrl) || "https://unsplash.com";
 
-            const targetUrl = `https://wa.me{encodeURIComponent(message)}`;
+                globalProducts.push({ id: id, name: collectionName + " - " + sareeName, price: price });
+
+                const cardHtml = `
+                    <label style="display: flex; flex-direction: column; justify-content: space-between; padding: 20px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; cursor: pointer; box-sizing: border-box; transition: border-color 0.2s;">
+                        <div style="display: flex; align-items: start; gap: 12px; margin-bottom: 16px;">
+                            <input type="checkbox" value="${id}" style="width: 20px; height: 20px; border-radius: 6px; border: 1px solid #cbd5e1; cursor: pointer; margin-top: 2px;">
+                            <div style="flex: 1;">
+                                <h3 style="font-size: 16px; font-weight: 700; color: #1e293b; margin: 0; line-height: 1.2;">${collectionName}</h3>
+                                <p style="font-size: 13px; color: #64748b; margin: 4px 0 0 0;">${sareeName}</p>
+                                <p style="font-size: 10px; font-weight: 600; color: #94a3b8; font-family: monospace; margin: 6px 0 0 0; text-transform: uppercase;">SKU: ${id}</p>
+                                <p style="font-size: 16px; font-weight: 800; color: #059669; margin: 6px 0 0 0;">MUR ${price}</p>
+                            </div>
+                        </div>
+                        <div style="width: 100%; height: 208px; background-color: #f8fafc; border: 1px solid #f1f5f9; border-radius: 12px; overflow: hidden; margin-top: auto;">
+                            <img src="${imgUrl}" alt="${sareeName}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='https://unsplash.com'">
+                        </div>
+                        ${notes ? `<p style="font-size: 11px; color: #94a3b8; margin: 12px 0 0 0; border-top: 1px solid #f1f5f9; padding-top: 8px; font-style: italic;">${notes}</p>` : ''}
+                    </label>
+                `;
+                container.innerHTML += cardHtml;
+            });
+        }
+
+        function sendSelection() {
+            const checkboxes = document.querySelectorAll('input[type="checkbox"]:checked');
+            if (checkboxes.length === 0) {
+                alert('Please check at least one saree product card before compiling.');
+                return;
+            }
+            let message = "📋 *Saree Collection Selection Report* 📋\n\n";
+            checkboxes.forEach(cb => {
+                const match = globalProducts.find(p => p.id === cb.value);
+                if (match) {
+                    message += "✅ *" + match.name + "*\n   ↳ SKU: _" + match.id + "_ | Resell Price: _MUR " + match.price + "_\n\n";
+                }
+            });
+            const targetUrl = "https://wa.me" + encodeURIComponent(message);
             window.open(targetUrl, '_blank');
         }
+
+        function showErrorState(reason) {
+            document.getElementById('product-container').innerHTML = `
+                <div style="grid-column: 1 / -1; text-align: center; padding: 48px 20px; background-color: #fef2f2; border-radius: 12px; border: 1px dashed #fca5a5;">
+                    <p style="color: #dc2626; font-weight: 600; font-size: 16px; margin: 0;">Masterfile Connection Failure</p>
+                    <p style="color: #ef4444; font-size: 12px; margin: 5px 0 0 0;">Trace Code: ${reason}</p>
+                </div>
+            `;
+        }
+
+        loadSheetViaScript();
     </script>
 </body>
 </html>

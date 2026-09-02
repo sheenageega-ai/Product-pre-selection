@@ -37,8 +37,7 @@
         // Pulls data using a native script tag source injection to bypass browser security blocks completely
         function loadSheetNatively() {
             const sheetId = '1vQwWaiS8BAIcm8zqhn2fWTpeRJJpTJdAi9_JCNcy8cL15Ram2jtCuIpfyh76RFgllOYFKNdoimn68kk';
-            const endpoint = 'https://docs.google.com/spreadsheets/d/' + sheetId + '/gviz/tq?tqx=responseHandler:processDataRaw&t=' + new Date().getTime();
-            
+            const endpoint = 'https://docs.google.com/spreadsheets/d/' + sheetId + '/gviz/tq?headers=8&tqx=responseHandler:processDataRaw&t=' + new Date().getTime();
             const script = document.createElement('script');
             script.src = endpoint;
             document.body.appendChild(script);

@@ -33,7 +33,7 @@
 
         function loadSheetViaScript() {
             const sheetId = '1vQwWaiS8BAIcm8zqhn2fWTpeRJJpTJdAi9_JCNcy8cL15Ram2jtCuIpfyh76RFgllOYFKNdoimn68kk';
-            const endpoint = "https://google.com" + sheetId + "/gviz/tq?tqx=responseHandler:processGoogleData&t=" + new Date().getTime();
+            const endpoint = "https://google.com" + sheetId + "/gviz/tq?headers=8&tqx=responseHandler:processGoogleData&t=" + new Date().getTime();
             const script = document.createElement('script');
             script.src = endpoint;
             document.body.appendChild(script);

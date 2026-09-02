@@ -4,10 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Saree Collection Selection Portal</title>
-    <!-- Tailwind CSS for modern responsive card structures -->
+    <!-- Tailwind CSS for clean mobile card grids -->
     <script src="https://tailwindcss.com"></script>
-    <!-- Google Charts Library to query the spreadsheet data safely -->
-    <script src="https://gstatic.com"></script>
 </head>
 <body class="bg-slate-50 min-h-screen p-4 md:p-8">
 
@@ -17,15 +15,15 @@
             <p class="text-sm text-slate-500 mt-1">Review the pre-selected pieces below and check boxes to compile your committee response.</p>
         </div>
         
-        <!-- Target grid layout where items will load -->
+        <!-- Target grid layout space where saree cards render -->
         <div id="product-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             <div class="col-span-full text-center py-12">
                 <div class="inline-block w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                <p class="text-slate-400 font-medium animate-pulse">Synchronizing with Masterfile...</p>
+                <p class="text-slate-400 font-medium animate-pulse">Synchronizing with Saree Masterfile...</p>
             </div>
         </div>
 
-        <!-- Submission Controls Hub -->
+        <!-- Submission Trigger Hub -->
         <div class="mt-8 pt-4 border-t border-slate-100">
             <button onclick="sendSelection()" class="w-full flex items-center justify-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-4 px-4 rounded-xl shadow-sm transition-all focus:ring-4 focus:ring-emerald-100 text-base">
                 <span>Send Final Selection via WhatsApp</span>
@@ -36,51 +34,46 @@
     <script>
         let globalProducts = [];
 
-        // Load the Google visualization query script framework natively
-        google.charts.load('current', {'packages':['corechart']});
-        google.charts.setOnLoadCallback(loadSheetViaGoogleEngine);
-
-        function loadSheetViaGoogleEngine() {
-            // Your exact core structural Google Sheet Key ID
+        // Pulls data using a native script tag source injection to bypass browser security blocks completely
+        function loadSheetNatively() {
             const sheetId = '1vQwWaiS8BAIcm8zqhn2fWTpeRJJpTJdAi9_JCNcy8cL15Ram2jtCuIpfyh76RFgllOYFKNdoimn68kk';
+            const endpoint = 'https://docs.google.com/spreadsheets/d/' + sheetId + '/gviz/tq?tqx=responseHandler:processDataRaw&t=' + new Date().getTime();
             
-            // Uses the raw query endpoint which reads row 8 as headers automatically
-            const queryUrl = 'https://google.com' + sheetId + '/gviz/tq?headers=8&t=' + new Date().getTime();
-            const query = new google.visualization.Query(queryUrl);
-            query.send(handleQueryResponse);
+            const script = document.createElement('script');
+            script.src = endpoint;
+            document.body.appendChild(script);
         }
 
-        function handleQueryResponse(response) {
-            if (response.isError()) {
-                showErrorState(response.getMessage() + " " + response.getDetailedMessage());
-                return;
-            }
-
-            const dataTable = response.getDataTable();
-            const numRows = dataTable.getNumberOfRows();
-            const numCols = dataTable.getNumberOfColumns();
-
-            // Read header rows dynamically from row 8 labels
-            let headers = [];
-            for (let c = 0; c < numCols; c++) {
-                headers.push(dataTable.getColumnLabel(c).trim());
-            }
-
-            let productRows = [];
-            for (let r = 0; r < numRows; r++) {
-                let rowData = {};
-                for (let c = 0; c < numCols; c++) {
-                    let headerName = headers[c];
-                    let cellValue = dataTable.getValue(r, c);
-                    rowData[headerName] = cellValue !== null ? cellValue.toString().trim() : '';
+        // Processing callback structure executing immediately upon cloud data delivery
+        window.processDataRaw = function(jsonResponse) {
+            try {
+                if (!jsonResponse || !jsonResponse.table) {
+                    showErrorState("Empty data payload returned from Google Cloud.");
+                    return;
                 }
-                productRows.push(rowData);
+
+                const table = jsonResponse.table;
+                
+                // Read the column label text structures from your sheet layout automatically
+                const rawHeaders = table.cols.map(c => c.label ? c.label.trim() : '');
+                
+                // Parse your grid rows out cleanly into a standard layout matrix
+                const items = table.rows.map(r => {
+                    const rowObj = {};
+                    rawHeaders.forEach((header, index) => {
+                        const cell = r.c[index];
+                        rowObj[header] = cell ? (cell.v !== null ? cell.v.toString().trim() : '') : '';
+                    });
+                    return rowObj;
+                });
+
+                renderCatalog(items);
+            } catch (err) {
+                showErrorState("Data parsing pipeline configuration mismatch.");
             }
+        };
 
-            renderCatalog(productRows);
-        }
-
-        // Transforms image link keys safely into raw thumbnails
+        // Transforms raw Drive links into stable image preview thumbnails
         function formatDriveImageUrl(rawUrl) {
             if (!rawUrl) return "";
             const cleanUrl = rawUrl.trim();
@@ -91,7 +84,7 @@
                 return "https://googleusercontent.com" + fileId;
             }
             
-            if (cleanUrl.includes('://google.com')) {
+            if (cleanUrl.includes('drive.google.com')) {
                 let fileId = "";
                 if (cleanUrl.includes('/d/')) {
                     const parts = cleanUrl.split('/d/');
@@ -109,7 +102,7 @@
             container.innerHTML = '';
             globalProducts = [];
 
-            // Case-insensitive clean filter scanning for rows matching 'Pre-selection'
+            // Filters rows cleanly based on your exactly typed column name 'Status' and value 'Pre-selection'
             const cleanRows = rows.filter(row => {
                 const statusValue = row['Status'] || '';
                 return statusValue.toLowerCase() === 'pre-selection';
@@ -119,13 +112,13 @@
                 container.innerHTML = `
                     <div class="col-span-full text-center py-12 bg-slate-50 rounded-xl border border-dashed border-slate-200 px-4">
                         <p class="text-slate-500 font-semibold text-base">No active pre-selection items found.</p>
-                        <p class="text-xs text-slate-400 mt-1">Make sure you have typed "Pre-selection" in your spreadsheet rows under the Status column.</p>
+                        <p class="text-xs text-slate-400 mt-1">Make sure row values are set to "Pre-selection" in your Status column rows.</p>
                     </div>`;
                 return;
             }
 
             cleanRows.forEach((row, index) => {
-                // Strict exact-string header bindings matching your shared masterfile columns
+                // Pinning target definitions matching your shared spreadsheet masterfile columns
                 const id = row['SKU'] || ("N/A-" + index);
                 const collectionName = row['Collection Name'] || "Saree Collection";
                 const sareeName = row['Saree Name / Number'] || "Unnamed Piece";
@@ -145,7 +138,7 @@
                                 <h3 class="font-bold text-slate-800 group-hover:text-emerald-900 transition-colors text-base leading-tight">${collectionName}</h3>
                                 <p class="text-xs text-slate-500 mt-0.5">${sareeName}</p>
                                 <p class="text-[10px] font-semibold text-slate-400 mt-1 uppercase tracking-wider font-mono">SKU: ${id}</p>
-                                <p class="text-base font-extrabold text-emerald-600 mt-1 font-sans">MUR ${price}</p>
+                                <p class="text-base font-extrabold text-emerald-600 mt-1">MUR ${price}</p>
                             </div>
                         </div>
                         <div class="w-full h-52 bg-slate-50 border border-slate-100 rounded-xl overflow-hidden mt-2 relative">
@@ -180,10 +173,13 @@
         function showErrorState(reason) {
             document.getElementById('product-container').innerHTML = `
                 <div class="col-span-full text-center py-12 bg-red-50/50 border border-dashed border-red-200 rounded-xl px-4">
-                    <p class="text-red-600 font-semibold text-base">Masterfile Synchronization Failure</p>
+                    <p class="text-red-600 font-semibold text-base">Masterfile Data Connection Failure</p>
                     <p class="text-xs text-slate-400 mt-1">Trace Code: ${reason}</p>
-  `;
+                </div>
+            `;
         }
+
+        loadSheetNatively();
     </script>
 </body>
 </html>

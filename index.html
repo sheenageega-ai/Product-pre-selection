@@ -6,7 +6,7 @@
     <title>Committee Product Selection</title>
     <!-- Tailwind CSS for robust layout visuals -->
     <script src="https://tailwindcss.com"></script>
-    <!-- PapaParse to structure text rows into readable browser lists -->
+    <!-- PapaParse to safely structure text rows into readable browser lists -->
     <script src="https://cloudflare.com"></script>
 </head>
 <body class="bg-slate-50 min-h-screen p-4 md:p-8">
@@ -36,8 +36,8 @@
         let globalProducts = [];
 
         function loadSheetViaScript() {
-            // Secure direct data download URL endpoint
-            const csvUrl = 'https://google.com';
+            //
+            const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQwWaiS8BAIcm8zqhn2fWTpeRJJpTJdAi9_JCNcy8cL15Ram2jtCuIpfyh76RFgllOYFKNdoimn68kk/pub?gid=0&single=true&output=csv';
             
             Papa.parse(csvUrl, {
                 download: true,
@@ -47,11 +47,11 @@
                     if (results && results.data && results.data.length > 0) {
                         renderCatalog(results.data);
                     } else {
-                        showErrorState("No rows returned from sheet.");
+                        showErrorState("No data records returned from sheet.");
                     }
                 },
                 error: function(err) {
-                    showErrorState("Connection block or invalid URL link structure.");
+                    showErrorState("Network block or invalid data stream layout.");
                 }
             });
         }
@@ -61,17 +61,17 @@
             if (!rawUrl) return "";
             const cleanUrl = rawUrl.trim();
             
-            if (cleanUrl.includes('://google.com')) {
+            if (cleanUrl.includes('drive.google.com')) {
                 let fileId = "";
                 
                 if (cleanUrl.includes('/d/')) {
                     const parts = cleanUrl.split('/d/');
-                    if (parts[1]) {
+                    if (parts && parts[1]) {
                         fileId = parts[1].split('/')[0].split('?')[0];
                     }
                 } else if (cleanUrl.includes('id=')) {
                     const parts = cleanUrl.split('id=');
-                    if (parts[1]) {
+                    if (parts && parts[1]) {
                         fileId = parts[1].split('&')[0];
                     }
                 }

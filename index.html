@@ -3,188 +3,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Saree Collection Selection Portal</title>
-    <!-- Tailwind CSS for modern responsive card structures -->
+    <title>Saree Collection Portal</title>
+    <!-- Tailwind CSS for clean mobile visuals -->
     <script src="https://tailwindcss.com"></script>
 </head>
-<body class="bg-slate-50 min-h-screen p-4 md:p-8">
+<body class="bg-slate-100 min-h-screen p-3 md:p-6 flex flex-col justify-between">
 
-    <div class="max-w-6xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
-        <div class="border-b border-slate-100 pb-4 mb-6">
-            <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Saree Collection Selection Portal</h1>
-            <p class="text-sm text-slate-500 mt-1">Review the pre-selected pieces below and check boxes to compile your committee response.</p>
+    <div class="max-w-4xl mx-auto w-full bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col flex-grow">
+        <div class="pb-3 border-b border-slate-100 mb-4">
+            <h1 class="text-xl font-bold text-slate-900 tracking-tight">Saree Selection Portal</h1>
+            <p class="text-xs text-slate-500 mt-0.5">Review the active Pre-selection collection items directly inside the master data grid below.</p>
         </div>
         
-        <!-- Target grid layout where items will load -->
-        <div id="product-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div class="col-span-full text-center py-12">
-                <div class="inline-block w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                <p class="text-slate-400 font-medium animate-pulse">Synchronizing with Saree Masterfile...</p>
-            </div>
+        <!-- Live Embedded Spreadsheet Frame Component -->
+        <div class="w-full flex-grow min-h-[450px] bg-slate-50 border border-slate-200 rounded-xl overflow-hidden relative shadow-inner">
+            <iframe 
+                src="https://google.com" 
+                class="absolute inset-0 w-full h-full border-0"
+                allowfullscreen>
+            </iframe>
         </div>
 
-        <!-- Submission Controls Hub -->
-        <div class="mt-8 pt-4 border-t border-slate-100">
-            <button onclick="sendSelection()" class="w-full flex items-center justify-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-4 px-4 rounded-xl shadow-sm transition-all focus:ring-4 focus:ring-emerald-100 text-base">
-                <span>Send Final Selection via WhatsApp</span>
+        <!-- Committee Compilation Interface Hub -->
+        <div class="mt-4 pt-4 border-t border-slate-100 space-y-3">
+            <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Enter Selected Item SKUs or Names:</label>
+                <textarea 
+                    id="selection-box" 
+                    rows="2" 
+                    placeholder="Type or paste the chosen SKU numbers here (e.g., KS-5621, KS-5625)..." 
+                    class="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 text-sm bg-slate-50 transition-all placeholder:text-slate-400"></textarea>
+            </div>
+
+            <button onclick="sendSelectionViaWhatsApp()" class="w-full flex items-center justify-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3.5 px-4 rounded-xl shadow-md text-sm">
+                <span>Submit Chosen Items via WhatsApp</span>
             </button>
         </div>
     </div>
 
     <script>
-        let globalProducts = [];
-
-        // Uses a secure JSONP script connection channel to bypass modern browser CORS data blocks natively
-        function loadSheetNatively() {
-            // Your exact shared spreadsheet document ID key sequence
-            const sheetId = '1vQwWaiS8BAIcm8zqhn2fWTpeRJJpTJdAi9_JCNcy8cL15Ram2jtCuIpfyh76RFgllOYFKNdoimn68kk';
-            
-            // Appends a custom function callback wrapper that browsers handle securely
-            const endpoint = "https://docs.google.com/spreadsheets/d/" + sheetId + "/gviz/tq?tqx=responseHandler:processGoogleData&t=" + new Date().getTime();
-            
-            const scriptElement = document.createElement('script');
-            scriptElement.src = endpoint;
-            document.body.appendChild(scriptElement);
-        }
-
-        // Processing array route executing immediately upon cloud matrix delivery
-        window.processGoogleData = function(jsonResponse) {
-            try {
-                if (!jsonResponse || !jsonResponse.table) {
-                    showErrorState("Empty data grid response layout.");
-                    return;
-                }
-
-                const table = jsonResponse.table;
-                
-                // Track columns automatically based on Row 1 labels
-                const columns = table.cols.map(c => c.label ? c.label.trim() : '');
-
-                // Compile cell items into rows map data structures array natively
-                const compiledRows = table.rows.map(r => {
-                    const rowObj = {};
-                    columns.forEach((colName, index) => {
-                        const cellObject = r.c[index];
-                        rowObj[colName] = cellObject ? (cellObject.v !== null ? cellObject.v.toString().trim() : '') : '';
-                    });
-                    return rowObj;
-                });
-
-                renderCatalogGrid(compiledRows);
-
-            } catch (err) {
-                showErrorState("Data parser matrix processing pipeline structural error.");
-            }
-        };
-
-        // Transforms image link strings cleanly into stable thumbnail assets
-        function formatDriveImageUrl(rawUrl) {
-            if (!rawUrl) return "";
-            const cleanUrl = rawUrl.trim();
-            
-            const driveKeyIndex = cleanUrl.indexOf("com1");
-            if (driveKeyIndex !== -1) {
-                const fileId = cleanUrl.substring(driveKeyIndex + 4).trim();
-                return "https://googleusercontent.com" + fileId;
-            }
-            
-            if (cleanUrl.includes('drive.google.com')) {
-                let fileId = "";
-                if (cleanUrl.includes('/d/')) {
-                    const parts = cleanUrl.split('/d/');
-                    if (parts && parts) {
-                        fileId = parts.split('/').split('?');
-                    }
-                }
-                if (fileId) return "https://googleusercontent.com" + fileId;
-            }
-            return cleanUrl;
-        }
-
-        function renderCatalogGrid(rows) {
-            const container = document.getElementById('product-container');
-            container.innerHTML = '';
-            globalProducts = [];
-
-            // Filters database matrix to ONLY match rows where Status equals "Pre-selection"
-            const cleanRows = rows.filter(row => {
-                const statusValue = row['Status'] || '';
-                return statusValue.toLowerCase() === 'pre-selection';
-            });
-
-            if (cleanRows.length === 0) {
-                container.innerHTML = `
-                    <div class="col-span-full text-center py-12 bg-slate-50 rounded-xl border border-dashed border-slate-200 px-4">
-                        <p class="text-slate-500 font-semibold text-base">No active pre-selection items found.</p>
-                        <p class="text-xs text-slate-400 mt-1">Make sure you have typed "Pre-selection" in your spreadsheet rows under the Status column.</p>
-                    </div>`;
-                return;
-            }
-
-            cleanRows.forEach((row, index) => {
-                // Strict exact-string header bindings matching your pricing masterfile schema rules
-                const id = row['SKU'] || ("N/A-" + index);
-                const collectionName = row['Collection Name'] || "Saree Collection";
-                const sareeName = row['Saree Name / Number'] || "Unnamed Piece";
-                const price = row['Resell Price\n (MUR)'] || row['Resell Price (MUR)'] || "0.00";
-                const notes = row['Notes'] || "";
-                
-                const rawImgUrl = row['Google Drive Share Link (paste here)'];
-                const imgUrl = formatDriveImageUrl(rawImgUrl) || "https://unsplash.com";
-
-                globalProducts.push({ id: id, name: collectionName + " - " + sareeName, price: price });
-
-                const cardHtml = `
-                    <label class="group relative flex flex-col justify-between p-5 bg-white border border-slate-200 rounded-2xl cursor-pointer hover:border-emerald-500 hover:shadow-md transition-all duration-200 select-none bg-white">
-                        <div class="flex items-start space-x-3 mb-4">
-                            <input type="checkbox" value="${id}" class="w-5 h-5 mt-0.5 text-emerald-600 border-slate-300 rounded-lg focus:ring-emerald-500 accent-emerald-600 cursor-pointer">
-                            <div class="flex-1">
-                                <h3 class="font-bold text-slate-800 group-hover:text-emerald-900 transition-colors text-base leading-tight">${collectionName}</h3>
-                                <p class="text-xs text-slate-500 mt-0.5">${sareeName}</p>
-                                <p class="text-[10px] font-semibold text-slate-400 mt-1 uppercase tracking-wider font-mono">SKU: ${id}</p>
-                                <p class="text-base font-extrabold text-emerald-600 mt-1">MUR ${price}</p>
-                            </div>
-                        </div>
-                        <div class="w-full h-52 bg-slate-50 border border-slate-100 rounded-xl overflow-hidden mt-2 relative">
-                            <img src="${imgUrl}" alt="${sareeName}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.src='https://unsplash.com'">
-                        </div>
-                        ${notes ? `<p class="text-[11px] text-slate-400 mt-3 border-t border-slate-100 pt-2 italic line-clamp-2">${notes}</p>` : ''}
-                    </label>
-                `;
-                container.innerHTML += cardHtml;
-            });
-        }
-
-        function sendSelection() {
-            const checkboxes = document.querySelectorAll('input[type="checkbox"]:checked');
-            if (checkboxes.length === 0) {
-                alert('Please check at least one saree product before compiling the message.');
+        function sendSelectionViaWhatsApp() {
+            const textInput = document.getElementById('selection-box').value.trim();
+            if (!textInput) {
+                alert('Please enter at least one selected SKU or item description in the workspace before compiling.');
                 return;
             }
 
             let message = "📋 *Saree Collection Selection Report* 📋\n\n";
-            checkboxes.forEach(cb => {
-                const match = globalProducts.find(p => p.id === cb.value);
-                if (match) {
-                    message += "✅ *" + match.name + "*\n   ↳ SKU: _" + match.id + "_ | Resell Price: _MUR " + match.price + "_\n\n";
-                }
-            });
+            message += `Selected Items:\n${textInput}\n\n`;
+            message += "Submitted via Selection Portal Link.";
 
-            const targetUrl = "https://wa.me" + encodeURIComponent(message);
+            const targetUrl = `https://wa.me{encodeURIComponent(message)}`;
             window.open(targetUrl, '_blank');
         }
-
-                function showErrorState(reason) {
-            document.getElementById('product-container').innerHTML = `
-                <div class="col-span-full text-center py-12 bg-red-50/50 border border-dashed border-red-200 rounded-xl px-4">
-                    <p class="text-red-600 font-semibold text-base">Masterfile Synchronization Failure</p>
-                    <p class="text-xs text-slate-400 mt-1">Trace Code: ${reason}</p>
-                    <p class="text-xs text-slate-400 mt-2 font-medium">Verify that the Google Sheet general access permissions are open to "Anyone with the link".</p>
-                </div>
-            `;
-        }
-
-        loadSheetNatively();
     </script>
 </body>
 </html>

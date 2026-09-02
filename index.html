@@ -4,28 +4,28 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Committee Product Selection</title>
-    <!-- Tailwind CSS for styling -->
+    <!-- Tailwind CSS for modern styling -->
     <script src="https://tailwindcss.com"></script>
-    <!-- PapaParse to handle complex spreadsheet structures flawlessly -->
+    <!-- PapaParse to handle complex spreadsheet cells flawlessly -->
     <script src="https://cloudflare.com"></script>
 </head>
-<body class="bg-gray-50 min-h-screen p-4 md:p-8">
+<body class="bg-slate-50 min-h-screen p-4 md:p-8">
 
-    <div class="max-w-2xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100">
-        <div class="border-b border-gray-100 pb-4 mb-6">
-            <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Product Selection Portal</h1>
-            <p class="text-sm text-gray-500 mt-1">Review items and check boxes to compile your committee response.</p>
+    <div class="max-w-2xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
+        <div class="border-b border-slate-100 pb-4 mb-6">
+            <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Product Selection Portal</h1>
+            <p class="text-sm text-slate-500 mt-1">Review the pre-selected collections below and tick your choices to compile your response.</p>
         </div>
         
-        <!-- Interactive Card Space -->
+        <!-- Product Card Grid Layout -->
         <div id="product-container" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div class="col-span-full text-center py-12">
-                <p class="text-gray-400 font-medium animate-pulse">Synchronizing with Master Sheet...</p>
+                <p class="text-slate-400 font-medium animate-pulse">Synchronizing with Master Sheet...</p>
             </div>
         </div>
 
-        <!-- Submit Hub -->
-        <div class="mt-8 pt-4 border-t border-gray-100">
+        <!-- Submit Panel -->
+        <div class="mt-8 pt-4 border-t border-slate-100">
             <button onclick="sendSelection()" class="w-full flex items-center justify-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3.5 px-4 rounded-xl shadow-sm transition-all focus:ring-4 focus:ring-emerald-100">
                 <span>Send Final Selection via WhatsApp</span>
             </button>
@@ -33,7 +33,7 @@
     </div>
 
     <script>
-        // REPLACE THIS URL WITH YOUR GOOGLE SHEET CSV LINK ONLY IF IT LOGS EMPTY ERRORS
+        // Your specific Google Sheet CSV masterlink
         const SHEET_URL = 'https://google.com';
 
         let globalProducts = [];
@@ -41,11 +41,10 @@
         async function initPortal() {
             try {
                 const response = await fetch(SHEET_URL);
-                if (!response.ok) throw new Error("Data stream blocked");
+                if (!response.ok) throw new Error("Data feed blocked");
                 
                 const csvData = await response.text();
                 
-                // Advanced parser configuration
                 Papa.parse(csvData, {
                     header: true,
                     skipEmptyLines: true,
@@ -61,46 +60,73 @@
             }
         }
 
+        // Extracts the unique ID from a Google Drive URL and formats it to load raw image assets safely
+        function formatDriveImageUrl(rawUrl) {
+            if (!rawUrl) return "";
+            const cleanUrl = rawUrl.trim();
+            
+            if (cleanUrl.includes('://google.com')) {
+                let fileId = "";
+                
+                // Matches standard /file/d/[ID]/view links
+                if (cleanUrl.includes('/d/')) {
+                    const parts = cleanUrl.split('/d/');
+                    if (parts[1]) {
+                        fileId = parts[1].split('/')[0].split('?')[0];
+                    }
+                } 
+                // Matches query-based ?id=[ID] links
+                else if (cleanUrl.includes('id=')) {
+                    const parts = cleanUrl.split('id=');
+                    if (parts[1]) {
+                        fileId = parts[1].split('&')[0];
+                    }
+                }
+                
+                if (fileId) {
+                    return `https://googleusercontent.com{fileId}`;
+                }
+            }
+            return cleanUrl; // If url is already direct/auto-generated, return it directly
+        }
+
         function renderCatalog(rows) {
             const container = document.getElementById('product-container');
             container.innerHTML = '';
             globalProducts = [];
 
-            // Case-insensitive mapping to accommodate minor variations in naming columns
+            // Filter sheet data to ONLY match products where status is "Pre-selection"
             const cleanRows = rows.filter(row => {
-                const statusKey = Object.keys(row).find(k => k.toLowerCase() === 'status');
-                return row[statusKey] && row[statusKey].trim().toLowerCase() === 'pre-selection';
+                return row['Status'] && row['Status'].trim().toLowerCase() === 'pre-selection';
             });
 
             if (cleanRows.length === 0) {
-                container.innerHTML = `<p class="col-span-full text-center text-gray-400 py-8">No products found marked as "Pre-selection".</p>`;
+                container.innerHTML = `<p class="col-span-full text-center text-slate-400 py-12 bg-slate-50 rounded-xl border border-dashed border-slate-200">No products found marked as "Pre-selection" in your spreadsheet's Status column.</p>`;
                 return;
             }
 
             cleanRows.forEach((row, index) => {
-                // Safely resolve column headings regardless of casing
-                const nameKey = Object.keys(row).find(k => k.toLowerCase() === 'name' || k.toLowerCase() === 'product name');
-                const priceKey = Object.keys(row).find(k => k.toLowerCase() === 'price' || k.toLowerCase() === 'resell price');
-                const imgKey = Object.keys(row).find(k => k.toLowerCase() === 'imageurl' || k.toLowerCase() === 'picture' || k.toLowerCase() === 'image');
-                const idKey = Object.keys(row).find(k => k.toLowerCase() === 'id' || k.toLowerCase() === 'product id') || Object.keys(row)[0];
-
-                const id = row[idKey]?.trim() || index.toString();
-                const name = row[nameKey]?.trim() || "Unnamed Item";
-                const price = row[priceKey]?.trim() || "0.00";
-                const imgUrl = row[imgKey]?.trim() || "https://unsplash.com";
+                // Strict exact-string column extraction matching your masterfile
+                const id = row['SKU']?.trim() || `N/A-${index}`;
+                const name = row['Collection Name']?.trim() || "Unnamed Collection";
+                const price = row['Resell Price (MUR)']?.trim() || "0.00";
+                
+                const rawImgUrl = row['Image URL (auto-generated) or Google Drive Share Link (paste here)'];
+                const imgUrl = formatDriveImageUrl(rawImgUrl) || "https://unsplash.com";
 
                 globalProducts.push({ id, name, price });
 
                 const cardHtml = `
-                    <label class="group relative flex flex-col justify-between p-4 bg-white border border-gray-200 rounded-2xl cursor-pointer hover:border-emerald-500 hover:shadow-sm transition-all duration-200 select-none">
+                    <label class="group relative flex flex-col justify-between p-4 bg-white border border-slate-200 rounded-2xl cursor-pointer hover:border-emerald-500 hover:shadow-sm transition-all duration-200 select-none">
                         <div class="flex items-start space-x-3 mb-3">
-                            <input type="checkbox" value="${id}" class="w-5 h-5 mt-0.5 text-emerald-600 border-gray-300 rounded-lg focus:ring-emerald-500 accent-emerald-600">
+                            <input type="checkbox" value="${id}" class="w-5 h-5 mt-0.5 text-emerald-600 border-slate-300 rounded-lg focus:ring-emerald-500 accent-emerald-600">
                             <div class="flex-1">
-                                <h3 class="font-semibold text-gray-800 group-hover:text-emerald-900 transition-colors text-sm leading-tight">${name}</h3>
-                                <p class="text-sm font-medium text-emerald-600 mt-1">Resell: ${price}</p>
+                                <h3 class="font-semibold text-slate-800 group-hover:text-emerald-900 transition-colors text-sm leading-tight">${name}</h3>
+                                <p class="text-[11px] font-medium text-slate-400 mt-0.5 uppercase tracking-wider font-mono">SKU: ${id}</p>
+                                <p class="text-sm font-bold text-emerald-600 mt-1">Rs ${price}</p>
                             </div>
                         </div>
-                        <div class="w-full h-36 bg-gray-50 border border-gray-100 rounded-xl overflow-hidden mt-auto">
+                        <div class="w-full h-40 bg-slate-50 border border-slate-100 rounded-xl overflow-hidden mt-2">
                             <img src="${imgUrl}" alt="${name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.src='https://unsplash.com'">
                         </div>
                     </label>
@@ -112,27 +138,28 @@
         function sendSelection() {
             const checkboxes = document.querySelectorAll('input[type="checkbox"]:checked');
             if (checkboxes.length === 0) {
-                alert('Please check at least one product before submitting.');
+                alert('Please check at least one product before submitting your selections.');
                 return;
             }
 
-            let message = "📋 *Committee Selections* 📋\n\n";
+            let message = "📋 *Committee Selection Report* 📋\n\n";
             checkboxes.forEach(cb => {
                 const match = globalProducts.find(p => p.id === cb.value);
                 if (match) {
-                    message += `✅ *${match.name}* (Price: ${match.price})\n`;
+                    message += `✅ *${match.name}*\n   ↳ SKU: _${match.id}_ | Price: _Rs ${match.price}_\n\n`;
                 }
             });
 
+            // Trigger universal WhatsApp Web / App share route API
             const targetUrl = `https://wa.me{encodeURIComponent(message)}`;
             window.open(targetUrl, '_blank');
         }
 
         function showErrorState() {
             document.getElementById('product-container').innerHTML = `
-                <div class="col-span-full text-center py-8">
-                    <p class="text-red-500 font-medium">Failed to sync database.</p>
-                    <p class="text-xs text-gray-400 mt-1">Check that your sheet is shared as a CSV document.</p>
+                <div class="col-span-full text-center py-12 bg-red-50/50 border border-dashed border-red-200 rounded-xl">
+                    <p class="text-red-600 font-semibold">Failed to connect to Google Sheet.</p>
+                    <p class="text-xs text-slate-400 mt-1">Please ensure your columns are named exactly correctly and the Sheet is Published to Web.</p>
                 </div>
             `;
         }

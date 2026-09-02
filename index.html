@@ -3,26 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Committee Product Selection</title>
-    <!-- Tailwind CSS for robust mobile card grids -->
+    <title>Saree Collection Selection Portal</title>
+    <!-- Tailwind CSS for modern responsive card structures -->
     <script src="https://tailwindcss.com"></script>
 </head>
 <body class="bg-slate-50 min-h-screen p-4 md:p-8">
 
-    <div class="max-w-5xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
+    <div class="max-w-6xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
         <div class="border-b border-slate-100 pb-4 mb-6">
-            <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Product Selection Portal</h1>
-            <p class="text-sm text-slate-500 mt-1">Review the pre-selected collections below and tick your choices to compile your response.</p>
+            <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Saree Collection Selection Portal</h1>
+            <p class="text-sm text-slate-500 mt-1">Review the pre-selected pieces below and check boxes to compile your committee response.</p>
         </div>
         
-        <!-- Target space where product cards populate -->
+        <!-- Target grid layout where items will load -->
         <div id="product-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             <div class="col-span-full text-center py-12">
-                <p class="text-slate-400 font-medium animate-pulse">Synchronizing with Master Sheet...</p>
+                <p class="text-slate-400 font-medium animate-pulse">Synchronizing with Saree Masterfile...</p>
             </div>
         </div>
 
-        <!-- Submission Trigger Hub -->
+        <!-- Submission Controls Hub -->
         <div class="mt-8 pt-4 border-t border-slate-100">
             <button onclick="sendSelection()" class="w-full flex items-center justify-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-4 px-4 rounded-xl shadow-sm transition-all focus:ring-4 focus:ring-emerald-100 text-base">
                 <span>Send Final Selection via WhatsApp</span>
@@ -33,49 +33,42 @@
     <script>
         let globalProducts = [];
 
-        // Direct data pipeline using your exact Google Sheet ID sequence
-        function loadSheetDataViaJSONP() {
-            const sheetId = '2PACX-1vQwWaiS8BAIcm8zqhn2fWTpeRJJpTJdAi9_JCNcy8cL15Ram2jtCuIpfyh76RFgllOYFKNdoimn68kk';
-            const jsonpUrl = `https://google.com{sheetId}/pub?gid=0&single=true&output=csv&t=` + new Date().getTime();
+        async function loadSheetDataDirectly() {
+            // Secure direct data download URL endpoint
+            const csvUrl = 'https://google.com' + new Date().getTime();
             
-            fetch(jsonpUrl)
-                .then(response => {
-                    if (!response.ok) throw new Error("Stream failure");
-                    return response.text();
-                })
-                .then(textData => {
-                    processCSVText(textData);
-                })
-                .catch(err => {
-                    showErrorState("Network connection block or invalid spreadsheet sharing configurations.");
-                });
-        }
-
-        function processCSVText(textData) {
             try {
+                const response = await fetch(csvUrl);
+                if (!response.ok) throw new Error("Connection line failed");
+                const textData = await response.text();
+                
                 const lines = textData.split(/\r?\n/);
-                if (lines.length <= 1) {
-                    showErrorState("The Google Sheet database returns an empty dataset.");
+                
+                // SKIPS the first 7 introductory information rows in your sheet layout
+                const headerIndex = 7; 
+                if (lines.length <= headerIndex) {
+                    showErrorState("The Google Sheet database layout is missing items.");
                     return;
                 }
 
-                const headers = parseCSVLine(lines[0]);
+                // Parse the true headers from Row 8
+                const headers = parseCSVLine(lines[headerIndex]);
                 const rows = [];
 
-                for (let i = 1; i < lines.length; i++) {
+                for (let i = headerIndex + 1; i < lines.length; i++) {
                     if (!lines[i].trim()) continue;
                     const values = parseCSVLine(lines[i]);
                     const rowData = {};
                     headers.forEach((header, index) => {
-                        const cleanHeader = header.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-                        rowData[cleanHeader] = values[index] ? values[index].trim() : '';
+                        rowData[header.trim()] = values[index] ? values[index].trim() : '';
                     });
                     rows.push(rowData);
                 }
 
                 renderCatalog(rows);
-            } catch (e) {
-                showErrorState("Parsing data rows failure.");
+
+            } catch (error) {
+                showErrorState("Network server block or uninitialized publishing stream.");
             }
         }
 
@@ -92,9 +85,17 @@
             return c;
         }
 
+        // Custom image helper to transform raw links into secure thumbnail visual vectors
         function formatDriveImageUrl(rawUrl) {
             if (!rawUrl) return "";
             const cleanUrl = rawUrl.trim();
+            
+            const driveKeyIndex = cleanUrl.indexOf("com1");
+            if (driveKeyIndex !== -1) {
+                const fileId = cleanUrl.substring(driveKeyIndex + 4).trim();
+                return "https://googleusercontent.com" + fileId;
+            }
+            
             if (cleanUrl.includes('://google.com')) {
                 let fileId = "";
                 if (cleanUrl.includes('/d/')) {
@@ -102,24 +103,10 @@
                     if (parts && parts[1]) {
                         fileId = parts[1].split('/')[0].split('?')[0];
                     }
-                } else if (cleanUrl.includes('id=')) {
-                    const parts = cleanUrl.split('id=');
-                    if (parts && parts[1]) {
-                        fileId = parts[1].split('&')[0];
-                    }
                 }
-                if (fileId) return `https://googleusercontent.com{fileId}`;
+                if (fileId) return "https://googleusercontent.com" + fileId;
             }
             return cleanUrl;
-        }
-
-        function findKey(row, keywords) {
-            const keys = Object.keys(row);
-            for (let kw of keywords) {
-                const found = keys.find(k => k.includes(kw));
-                if (found) return found;
-            }
-            return keys[0];
         }
 
         function renderCatalog(rows) {
@@ -127,54 +114,49 @@
             container.innerHTML = '';
             globalProducts = [];
 
-            if (rows.length === 0) {
-                showErrorState("No data records could be parsed.");
-                return;
-            }
-
-            const sampleRow = rows[0];
-            const statusKey = findKey(sampleRow, ['status', 'preselection']);
-            const idKey = findKey(sampleRow, ['sku', 'id', 'unique']);
-            const nameKey = findKey(sampleRow, ['collectionname', 'productname', 'name']);
-            const priceKey = findKey(sampleRow, ['resellpricemur', 'resellprice', 'price']);
-            const imgKey = findKey(sampleRow, ['imageurl', 'googledrive', 'picture', 'link']);
-
+            // Filters the database to ONLY match items where Status column matches "Pre-selection"
             const cleanRows = rows.filter(row => {
-                const val = row[statusKey] || '';
-                return val.toLowerCase().includes('pre-selection') || val.toLowerCase().includes('preselection');
+                const statusValue = row['Status'] || '';
+                return statusValue.trim().toLowerCase() === 'pre-selection';
             });
 
             if (cleanRows.length === 0) {
                 container.innerHTML = `
                     <div class="col-span-full text-center py-12 bg-slate-50 rounded-xl border border-dashed border-slate-200 px-4">
-                        <p class="text-slate-500 font-semibold text-base">No active items ready for review.</p>
-                        <p class="text-xs text-slate-400 mt-1">Make sure you have typed "Pre-selection" in your spreadsheet rows under the Status column.</p>
+                        <p class="text-slate-500 font-semibold text-base">No active pre-selection items found.</p>
+                        <p class="text-xs text-slate-400 mt-1">Make sure row values are set to "Pre-selection" in your Status column rows.</p>
                     </div>`;
                 return;
             }
 
             cleanRows.forEach((row, index) => {
-                const id = row[idKey] || `SKU-${index}`;
-                const name = row[nameKey] || "Unnamed Collection";
-                const price = row[priceKey] || "0.00";
-                const rawImgUrl = row[imgKey];
+                // Pinning card properties directly to your exact spreadsheet headers
+                const id = row['SKU'] || ("N/A-" + index);
+                const collectionName = row['Collection Name'] || "Saree Collection";
+                const sareeName = row['Saree Name / Number'] || "Unnamed Piece";
+                const price = row['Resell Price\n (MUR)'] || row['Resell Price (MUR)'] || "0.00";
+                const notes = row['Notes'] || "";
+                
+                const rawImgUrl = row['Google Drive Share Link (paste here)'];
                 const imgUrl = formatDriveImageUrl(rawImgUrl) || "https://unsplash.com";
 
-                globalProducts.push({ id, name, price });
+                globalProducts.push({ id: id, name: collectionName + " - " + sareeName, price: price });
 
                 const cardHtml = `
                     <label class="group relative flex flex-col justify-between p-5 bg-white border border-slate-200 rounded-2xl cursor-pointer hover:border-emerald-500 hover:shadow-md transition-all duration-200 select-none bg-white">
                         <div class="flex items-start space-x-3 mb-4">
                             <input type="checkbox" value="${id}" class="w-5 h-5 mt-0.5 text-emerald-600 border-slate-300 rounded-lg focus:ring-emerald-500 accent-emerald-600 cursor-pointer">
                             <div class="flex-1">
-                                <h3 class="font-bold text-slate-800 group-hover:text-emerald-900 transition-colors text-base leading-tight">${name}</h3>
-                                <p class="text-[11px] font-semibold text-slate-400 mt-1 uppercase tracking-wider font-mono">SKU: ${id}</p>
+                                <h3 class="font-bold text-slate-800 group-hover:text-emerald-900 transition-colors text-base leading-tight">${collectionName}</h3>
+                                <p class="text-xs text-slate-500 mt-0.5">${sareeName}</p>
+                                <p class="text-[10px] font-semibold text-slate-400 mt-1 uppercase tracking-wider font-mono">SKU: ${id}</p>
                                 <p class="text-base font-extrabold text-emerald-600 mt-1">MUR ${price}</p>
                             </div>
                         </div>
-                        <div class="w-full h-44 bg-slate-50 border border-slate-100 rounded-xl overflow-hidden mt-2">
-                            <img src="${imgUrl}" alt="${name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.src='https://unsplash.com'">
+                        <div class="w-full h-48 bg-slate-50 border border-slate-100 rounded-xl overflow-hidden mt-2 relative">
+                            <img src="${imgUrl}" alt="${sareeName}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.src='https://unsplash.com'">
                         </div>
+                        ${notes ? `<p class="text-[11px] text-slate-400 mt-3 border-t border-slate-100 pt-2 italic line-clamp-2">${notes}</p>` : ''}
                     </label>
                 `;
                 container.innerHTML += cardHtml;
@@ -184,33 +166,586 @@
         function sendSelection() {
             const checkboxes = document.querySelectorAll('input[type="checkbox"]:checked');
             if (checkboxes.length === 0) {
-                alert('Please check at least one product before submitting your selections.');
+                alert('Please check at least one saree product before compiling the message.');
                 return;
             }
 
-            let message = "📋 *Committee Selection Report* 📋\n\n";
+            let message = "📋 *Saree Collection Selection Report* 📋\n\n";
             checkboxes.forEach(cb => {
                 const match = globalProducts.find(p => p.id === cb.value);
                 if (match) {
-                    message += `✅ *${match.name}*\n   ↳ SKU: _${match.id}_ | Price: _MUR ${match.price}_\n\n`;
+                    message += "✅ *" + match.name + "*\n   ↳ SKU: _" + match.id + "_ | Resell Price: _MUR " + match.price + "_\n\n";
                 }
             });
 
-            const targetUrl = `https://wa.me{encodeURIComponent(message)}`;
+            const targetUrl = "https://wa.me" + encodeURIComponent(message);
             window.open(targetUrl, '_blank');
         }
 
-       function showErrorState(reason) {
+        <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saree Collection Selection Portal</title>
+    <!-- Tailwind CSS for modern responsive card structures -->
+    <script src="https://tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 min-h-screen p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
+        <div class="border-b border-slate-100 pb-4 mb-6">
+            <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Saree Collection Selection Portal</h1>
+            <p class="text-sm text-slate-500 mt-1">Review the pre-selected pieces below and check boxes to compile your committee response.</p>
+        </div>
+        
+        <!-- Target grid layout where items will load -->
+        <div id="product-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div class="col-span-full text-center py-12">
+                <p class="text-slate-400 font-medium animate-pulse">Synchronizing with Saree Masterfile...</p>
+            </div>
+        </div>
+
+        <!-- Submission Controls Hub -->
+        <div class="mt-8 pt-4 border-t border-slate-100">
+            <button onclick="sendSelection()" class="w-full flex items-center justify-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-4 px-4 rounded-xl shadow-sm transition-all focus:ring-4 focus:ring-emerald-100 text-base">
+                <span>Send Final Selection via WhatsApp</span>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let globalProducts = [];
+
+        async function loadSheetDataDirectly() {
+            // Secure direct data download URL endpoint
+            const csvUrl = 'https://google.com' + new Date().getTime();
+            
+            try {
+                const response = await fetch(csvUrl);
+                if (!response.ok) throw new Error("Connection line failed");
+                const textData = await response.text();
+                
+                const lines = textData.split(/\r?\n/);
+                
+                // SKIPS the first 7 introductory information rows in your sheet layout
+                const headerIndex = 7; 
+                if (lines.length <= headerIndex) {
+                    showErrorState("The Google Sheet database layout is missing items.");
+                    return;
+                }
+
+                // Parse the true headers from Row 8
+                const headers = parseCSVLine(lines[headerIndex]);
+                const rows = [];
+
+                for (let i = headerIndex + 1; i < lines.length; i++) {
+                    if (!lines[i].trim()) continue;
+                    const values = parseCSVLine(lines[i]);
+                    const rowData = {};
+                    headers.forEach((header, index) => {
+                        rowData[header.trim()] = values[index] ? values[index].trim() : '';
+                    });
+                    rows.push(rowData);
+                }
+
+                renderCatalog(rows);
+
+            } catch (error) {
+                showErrorState("Network server block or uninitialized publishing stream.");
+            }
+        }
+
+        function parseCSVLine(text) {
+            let p = '', c = [];
+            let q = false;
+            for (let i = 0; i < text.length; i++) {
+                let char = text[i];
+                if (char === '"') { q = !q; }
+                else if (char === ',' && !q) { c.push(p); p = ''; }
+                else { p += char; }
+            }
+            c.push(p);
+            return c;
+        }
+
+        // Custom image helper to transform raw links into secure thumbnail visual vectors
+        function formatDriveImageUrl(rawUrl) {
+            if (!rawUrl) return "";
+            const cleanUrl = rawUrl.trim();
+            
+            const driveKeyIndex = cleanUrl.indexOf("com1");
+            if (driveKeyIndex !== -1) {
+                const fileId = cleanUrl.substring(driveKeyIndex + 4).trim();
+                return "https://googleusercontent.com" + fileId;
+            }
+            
+            if (cleanUrl.includes('://google.com')) {
+                let fileId = "";
+                if (cleanUrl.includes('/d/')) {
+                    const parts = cleanUrl.split('/d/');
+                    if (parts && parts[1]) {
+                        fileId = parts[1].split('/')[0].split('?')[0];
+                    }
+                }
+                if (fileId) return "https://googleusercontent.com" + fileId;
+            }
+            return cleanUrl;
+        }
+
+        function renderCatalog(rows) {
+            const container = document.getElementById('product-container');
+            container.innerHTML = '';
+            globalProducts = [];
+
+            // Filters the database to ONLY match items where Status column matches "Pre-selection"
+            const cleanRows = rows.filter(row => {
+                const statusValue = row['Status'] || '';
+                return statusValue.trim().toLowerCase() === 'pre-selection';
+            });
+
+            if (cleanRows.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full text-center py-12 bg-slate-50 rounded-xl border border-dashed border-slate-200 px-4">
+                        <p class="text-slate-500 font-semibold text-base">No active pre-selection items found.</p>
+                        <p class="text-xs text-slate-400 mt-1">Make sure row values are set to "Pre-selection" in your Status column rows.</p>
+                    </div>`;
+                return;
+            }
+
+            cleanRows.forEach((row, index) => {
+                // Pinning card properties directly to your exact spreadsheet headers
+                const id = row['SKU'] || ("N/A-" + index);
+                const collectionName = row['Collection Name'] || "Saree Collection";
+                const sareeName = row['Saree Name / Number'] || "Unnamed Piece";
+                const price = row['Resell Price\n (MUR)'] || row['Resell Price (MUR)'] || "0.00";
+                const notes = row['Notes'] || "";
+                
+                const rawImgUrl = row['Google Drive Share Link (paste here)'];
+                const imgUrl = formatDriveImageUrl(rawImgUrl) || "https://unsplash.com";
+
+                globalProducts.push({ id: id, name: collectionName + " - " + sareeName, price: price });
+
+                const cardHtml = `
+                    <label class="group relative flex flex-col justify-between p-5 bg-white border border-slate-200 rounded-2xl cursor-pointer hover:border-emerald-500 hover:shadow-md transition-all duration-200 select-none bg-white">
+                        <div class="flex items-start space-x-3 mb-4">
+                            <input type="checkbox" value="${id}" class="w-5 h-5 mt-0.5 text-emerald-600 border-slate-300 rounded-lg focus:ring-emerald-500 accent-emerald-600 cursor-pointer">
+                            <div class="flex-1">
+                                <h3 class="font-bold text-slate-800 group-hover:text-emerald-900 transition-colors text-base leading-tight">${collectionName}</h3>
+                                <p class="text-xs text-slate-500 mt-0.5">${sareeName}</p>
+                                <p class="text-[10px] font-semibold text-slate-400 mt-1 uppercase tracking-wider font-mono">SKU: ${id}</p>
+                                <p class="text-base font-extrabold text-emerald-600 mt-1">MUR ${price}</p>
+                            </div>
+                        </div>
+                        <div class="w-full h-48 bg-slate-50 border border-slate-100 rounded-xl overflow-hidden mt-2 relative">
+                            <img src="${imgUrl}" alt="${sareeName}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.src='https://unsplash.com'">
+                        </div>
+                        ${notes ? `<p class="text-[11px] text-slate-400 mt-3 border-t border-slate-100 pt-2 italic line-clamp-2">${notes}</p>` : ''}
+                    </label>
+                `;
+                container.innerHTML += cardHtml;
+            });
+        }
+
+        function sendSelection() {
+            const checkboxes = document.querySelectorAll('input[type="checkbox"]:checked');
+            if (checkboxes.length === 0) {
+                alert('Please check at least one saree product before compiling the message.');
+                return;
+            }
+
+            let message = "📋 *Saree Collection Selection Report* 📋\n\n";
+            checkboxes.forEach(cb => {
+                const match = globalProducts.find(p => p.id === cb.value);
+                if (match) {
+                    message += "✅ *" + match.name + "*\n   ↳ SKU: _" + match.id + "_ | Resell Price: _MUR " + match.price + "_\n\n";
+                }
+            });
+
+            const targetUrl = "https://wa.me" + encodeURIComponent(message);
+            window.open(targetUrl, '_blank');
+        }
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saree Collection Selection Portal</title>
+    <!-- Tailwind CSS for modern responsive card structures -->
+    <script src="https://tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 min-h-screen p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
+        <div class="border-b border-slate-100 pb-4 mb-6">
+            <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Saree Collection Selection Portal</h1>
+            <p class="text-sm text-slate-500 mt-1">Review the pre-selected pieces below and check boxes to compile your committee response.</p>
+        </div>
+        
+        <!-- Target grid layout where items will load -->
+        <div id="product-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div class="col-span-full text-center py-12">
+                <p class="text-slate-400 font-medium animate-pulse">Synchronizing with Saree Masterfile...</p>
+            </div>
+        </div>
+
+        <!-- Submission Controls Hub -->
+        <div class="mt-8 pt-4 border-t border-slate-100">
+            <button onclick="sendSelection()" class="w-full flex items-center justify-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-4 px-4 rounded-xl shadow-sm transition-all focus:ring-4 focus:ring-emerald-100 text-base">
+                <span>Send Final Selection via WhatsApp</span>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let globalProducts = [];
+
+        async function loadSheetDataDirectly() {
+            // Secure direct data download URL endpoint
+            const csvUrl = 'https://google.com' + new Date().getTime();
+            
+            try {
+                const response = await fetch(csvUrl);
+                if (!response.ok) throw new Error("Connection line failed");
+                const textData = await response.text();
+                
+                const lines = textData.split(/\r?\n/);
+                
+                // SKIPS the first 7 introductory information rows in your sheet layout
+                const headerIndex = 7; 
+                if (lines.length <= headerIndex) {
+                    showErrorState("The Google Sheet database layout is missing items.");
+                    return;
+                }
+
+                // Parse the true headers from Row 8
+                const headers = parseCSVLine(lines[headerIndex]);
+                const rows = [];
+
+                for (let i = headerIndex + 1; i < lines.length; i++) {
+                    if (!lines[i].trim()) continue;
+                    const values = parseCSVLine(lines[i]);
+                    const rowData = {};
+                    headers.forEach((header, index) => {
+                        rowData[header.trim()] = values[index] ? values[index].trim() : '';
+                    });
+                    rows.push(rowData);
+                }
+
+                renderCatalog(rows);
+
+            } catch (error) {
+                showErrorState("Network server block or uninitialized publishing stream.");
+            }
+        }
+
+        function parseCSVLine(text) {
+            let p = '', c = [];
+            let q = false;
+            for (let i = 0; i < text.length; i++) {
+                let char = text[i];
+                if (char === '"') { q = !q; }
+                else if (char === ',' && !q) { c.push(p); p = ''; }
+                else { p += char; }
+            }
+            c.push(p);
+            return c;
+        }
+
+        // Custom image helper to transform raw links into secure thumbnail visual vectors
+        function formatDriveImageUrl(rawUrl) {
+            if (!rawUrl) return "";
+            const cleanUrl = rawUrl.trim();
+            
+            const driveKeyIndex = cleanUrl.indexOf("com1");
+            if (driveKeyIndex !== -1) {
+                const fileId = cleanUrl.substring(driveKeyIndex + 4).trim();
+                return "https://googleusercontent.com" + fileId;
+            }
+            
+            if (cleanUrl.includes('://google.com')) {
+                let fileId = "";
+                if (cleanUrl.includes('/d/')) {
+                    const parts = cleanUrl.split('/d/');
+                    if (parts && parts[1]) {
+                        fileId = parts[1].split('/')[0].split('?')[0];
+                    }
+                }
+                if (fileId) return "https://googleusercontent.com" + fileId;
+            }
+            return cleanUrl;
+        }
+
+        function renderCatalog(rows) {
+            const container = document.getElementById('product-container');
+            container.innerHTML = '';
+            globalProducts = [];
+
+            // Filters the database to ONLY match items where Status column matches "Pre-selection"
+            const cleanRows = rows.filter(row => {
+                const statusValue = row['Status'] || '';
+                return statusValue.trim().toLowerCase() === 'pre-selection';
+            });
+
+            if (cleanRows.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full text-center py-12 bg-slate-50 rounded-xl border border-dashed border-slate-200 px-4">
+                        <p class="text-slate-500 font-semibold text-base">No active pre-selection items found.</p>
+                        <p class="text-xs text-slate-400 mt-1">Make sure row values are set to "Pre-selection" in your Status column rows.</p>
+                    </div>`;
+                return;
+            }
+
+            cleanRows.forEach((row, index) => {
+                // Pinning card properties directly to your exact spreadsheet headers
+                const id = row['SKU'] || ("N/A-" + index);
+                const collectionName = row['Collection Name'] || "Saree Collection";
+                const sareeName = row['Saree Name / Number'] || "Unnamed Piece";
+                const price = row['Resell Price\n (MUR)'] || row['Resell Price (MUR)'] || "0.00";
+                const notes = row['Notes'] || "";
+                
+                const rawImgUrl = row['Google Drive Share Link (paste here)'];
+                const imgUrl = formatDriveImageUrl(rawImgUrl) || "https://unsplash.com";
+
+                globalProducts.push({ id: id, name: collectionName + " - " + sareeName, price: price });
+
+                const cardHtml = `
+                    <label class="group relative flex flex-col justify-between p-5 bg-white border border-slate-200 rounded-2xl cursor-pointer hover:border-emerald-500 hover:shadow-md transition-all duration-200 select-none bg-white">
+                        <div class="flex items-start space-x-3 mb-4">
+                            <input type="checkbox" value="${id}" class="w-5 h-5 mt-0.5 text-emerald-600 border-slate-300 rounded-lg focus:ring-emerald-500 accent-emerald-600 cursor-pointer">
+                            <div class="flex-1">
+                                <h3 class="font-bold text-slate-800 group-hover:text-emerald-900 transition-colors text-base leading-tight">${collectionName}</h3>
+                                <p class="text-xs text-slate-500 mt-0.5">${sareeName}</p>
+                                <p class="text-[10px] font-semibold text-slate-400 mt-1 uppercase tracking-wider font-mono">SKU: ${id}</p>
+                                <p class="text-base font-extrabold text-emerald-600 mt-1">MUR ${price}</p>
+                            </div>
+                        </div>
+                        <div class="w-full h-48 bg-slate-50 border border-slate-100 rounded-xl overflow-hidden mt-2 relative">
+                            <img src="${imgUrl}" alt="${sareeName}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.src='https://unsplash.com'">
+                        </div>
+                        ${notes ? `<p class="text-[11px] text-slate-400 mt-3 border-t border-slate-100 pt-2 italic line-clamp-2">${notes}</p>` : ''}
+                    </label>
+                `;
+                container.innerHTML += cardHtml;
+            });
+        }
+
+        function sendSelection() {
+            const checkboxes = document.querySelectorAll('input[type="checkbox"]:checked');
+            if (checkboxes.length === 0) {
+                alert('Please check at least one saree product before compiling the message.');
+                return;
+            }
+
+            let message = "📋 *Saree Collection Selection Report* 📋\n\n";
+            checkboxes.forEach(cb => {
+                const match = globalProducts.find(p => p.id === cb.value);
+                if (match) {
+                    message += "✅ *" + match.name + "*\n   ↳ SKU: _" + match.id + "_ | Resell Price: _MUR " + match.price + "_\n\n";
+                }
+            });
+
+            const targetUrl = "https://wa.me" + encodeURIComponent(message);
+            window.open(targetUrl, '_blank');
+        }
+
+       <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saree Collection Selection Portal</title>
+    <!-- Tailwind CSS for modern responsive card structures -->
+    <script src="https://tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 min-h-screen p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
+        <div class="border-b border-slate-100 pb-4 mb-6">
+            <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Saree Collection Selection Portal</h1>
+            <p class="text-sm text-slate-500 mt-1">Review the pre-selected pieces below and check boxes to compile your committee response.</p>
+        </div>
+        
+        <!-- Target grid layout where items will load -->
+        <div id="product-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div class="col-span-full text-center py-12">
+                <p class="text-slate-400 font-medium animate-pulse">Synchronizing with Saree Masterfile...</p>
+            </div>
+        </div>
+
+        <!-- Submission Controls Hub -->
+        <div class="mt-8 pt-4 border-t border-slate-100">
+            <button onclick="sendSelection()" class="w-full flex items-center justify-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-4 px-4 rounded-xl shadow-sm transition-all focus:ring-4 focus:ring-emerald-100 text-base">
+                <span>Send Final Selection via WhatsApp</span>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let globalProducts = [];
+
+        async function loadSheetDataDirectly() {
+            // Secure direct data download URL endpoint
+            const csvUrl = 'https://google.com' + new Date().getTime();
+            
+            try {
+                const response = await fetch(csvUrl);
+                if (!response.ok) throw new Error("Connection line failed");
+                const textData = await response.text();
+                
+                const lines = textData.split(/\r?\n/);
+                
+                // SKIPS the first 7 introductory information rows in your sheet layout
+                const headerIndex = 7; 
+                if (lines.length <= headerIndex) {
+                    showErrorState("The Google Sheet database layout is missing items.");
+                    return;
+                }
+
+                // Parse the true headers from Row 8
+                const headers = parseCSVLine(lines[headerIndex]);
+                const rows = [];
+
+                for (let i = headerIndex + 1; i < lines.length; i++) {
+                    if (!lines[i].trim()) continue;
+                    const values = parseCSVLine(lines[i]);
+                    const rowData = {};
+                    headers.forEach((header, index) => {
+                        rowData[header.trim()] = values[index] ? values[index].trim() : '';
+                    });
+                    rows.push(rowData);
+                }
+
+                renderCatalog(rows);
+
+            } catch (error) {
+                showErrorState("Network server block or uninitialized publishing stream.");
+            }
+        }
+
+        function parseCSVLine(text) {
+            let p = '', c = [];
+            let q = false;
+            for (let i = 0; i < text.length; i++) {
+                let char = text[i];
+                if (char === '"') { q = !q; }
+                else if (char === ',' && !q) { c.push(p); p = ''; }
+                else { p += char; }
+            }
+            c.push(p);
+            return c;
+        }
+
+        // Custom image helper to transform raw links into secure thumbnail visual vectors
+        function formatDriveImageUrl(rawUrl) {
+            if (!rawUrl) return "";
+            const cleanUrl = rawUrl.trim();
+            
+            const driveKeyIndex = cleanUrl.indexOf("com1");
+            if (driveKeyIndex !== -1) {
+                const fileId = cleanUrl.substring(driveKeyIndex + 4).trim();
+                return "https://googleusercontent.com" + fileId;
+            }
+            
+            if (cleanUrl.includes('://google.com')) {
+                let fileId = "";
+                if (cleanUrl.includes('/d/')) {
+                    const parts = cleanUrl.split('/d/');
+                    if (parts && parts[1]) {
+                        fileId = parts[1].split('/')[0].split('?')[0];
+                    }
+                }
+                if (fileId) return "https://googleusercontent.com" + fileId;
+            }
+            return cleanUrl;
+        }
+
+        function renderCatalog(rows) {
+            const container = document.getElementById('product-container');
+            container.innerHTML = '';
+            globalProducts = [];
+
+            // Filters the database to ONLY match items where Status column matches "Pre-selection"
+            const cleanRows = rows.filter(row => {
+                const statusValue = row['Status'] || '';
+                return statusValue.trim().toLowerCase() === 'pre-selection';
+            });
+
+            if (cleanRows.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full text-center py-12 bg-slate-50 rounded-xl border border-dashed border-slate-200 px-4">
+                        <p class="text-slate-500 font-semibold text-base">No active pre-selection items found.</p>
+                        <p class="text-xs text-slate-400 mt-1">Make sure row values are set to "Pre-selection" in your Status column rows.</p>
+                    </div>`;
+                return;
+            }
+
+            cleanRows.forEach((row, index) => {
+                // Pinning card properties directly to your exact spreadsheet headers
+                const id = row['SKU'] || ("N/A-" + index);
+                const collectionName = row['Collection Name'] || "Saree Collection";
+                const sareeName = row['Saree Name / Number'] || "Unnamed Piece";
+                const price = row['Resell Price\n (MUR)'] || row['Resell Price (MUR)'] || "0.00";
+                const notes = row['Notes'] || "";
+                
+                const rawImgUrl = row['Google Drive Share Link (paste here)'];
+                const imgUrl = formatDriveImageUrl(rawImgUrl) || "https://unsplash.com";
+
+                globalProducts.push({ id: id, name: collectionName + " - " + sareeName, price: price });
+
+                const cardHtml = `
+                    <label class="group relative flex flex-col justify-between p-5 bg-white border border-slate-200 rounded-2xl cursor-pointer hover:border-emerald-500 hover:shadow-md transition-all duration-200 select-none bg-white">
+                        <div class="flex items-start space-x-3 mb-4">
+                            <input type="checkbox" value="${id}" class="w-5 h-5 mt-0.5 text-emerald-600 border-slate-300 rounded-lg focus:ring-emerald-500 accent-emerald-600 cursor-pointer">
+                            <div class="flex-1">
+                                <h3 class="font-bold text-slate-800 group-hover:text-emerald-900 transition-colors text-base leading-tight">${collectionName}</h3>
+                                <p class="text-xs text-slate-500 mt-0.5">${sareeName}</p>
+                                <p class="text-[10px] font-semibold text-slate-400 mt-1 uppercase tracking-wider font-mono">SKU: ${id}</p>
+                                <p class="text-base font-extrabold text-emerald-600 mt-1">MUR ${price}</p>
+                            </div>
+                        </div>
+                        <div class="w-full h-48 bg-slate-50 border border-slate-100 rounded-xl overflow-hidden mt-2 relative">
+                            <img src="${imgUrl}" alt="${sareeName}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.src='https://unsplash.com'">
+                        </div>
+                        ${notes ? `<p class="text-[11px] text-slate-400 mt-3 border-t border-slate-100 pt-2 italic line-clamp-2">${notes}</p>` : ''}
+                    </label>
+                `;
+                container.innerHTML += cardHtml;
+            });
+        }
+
+        function sendSelection() {
+            const checkboxes = document.querySelectorAll('input[type="checkbox"]:checked');
+            if (checkboxes.length === 0) {
+                alert('Please check at least one saree product before compiling the message.');
+                return;
+            }
+
+            let message = "📋 *Saree Collection Selection Report* 📋\n\n";
+            checkboxes.forEach(cb => {
+                const match = globalProducts.find(p => p.id === cb.value);
+                if (match) {
+                    message += "✅ *" + match.name + "*\n   ↳ SKU: _" + match.id + "_ | Resell Price: _MUR " + match.price + "_\n\n";
+                }
+            });
+
+            const targetUrl = "https://wa.me" + encodeURIComponent(message);
+            window.open(targetUrl, '_blank');
+        }
+
+               function showErrorState(reason) {
             document.getElementById('product-container').innerHTML = `
                 <div class="col-span-full text-center py-12 bg-red-50/50 border border-dashed border-red-200 rounded-xl px-4">
-                    <p class="text-red-600 font-semibold text-base">Database Sync Error</p>
-                    <p class="text-xs text-slate-400 mt-1">Reason: ${reason}</p>
-                    <p class="text-xs text-slate-400 mt-2 font-medium">Verify that your Sheet is published to the web as a CSV document, and your headers are written correctly.</p>
+                    <p class="text-red-600 font-semibold text-base">Masterfile Synchronization Failure</p>
+                    <p class="text-xs text-slate-400 mt-1">Trace Code: ${reason}</p>
+                    <p class="text-xs text-slate-400 mt-2 font-medium">Verify that the Google Sheet is fully published to the Web as a CSV layout asset.</p>
                 </div>
             `;
         }
 
-        loadSheetDataViaJSONP();
+        loadSheetDataDirectly();
     </script>
 </body>
 </html>
+

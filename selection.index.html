@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Committee Product Selection</title>
+    <!-- Tailwind CSS for instant, beautiful styling -->
+    <script src="https://tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-4">
+
+    <div class="max-w-md mx-auto bg-white p-6 rounded-xl shadow-md">
+        <h1 class="text-2xl font-bold mb-2 text-gray-800">Product Selection</h1>
+        <p class="text-sm text-gray-500 mb-6">Select the products to submit via WhatsApp.</p>
+        
+        <!-- Product Grid Container -->
+        <div id="product-container" class="space-y-4">
+            <p class="text-gray-400 animate-pulse">Loading products...</p>
+        </div>
+
+        <!-- Submit Button -->
+        <button onclick="sendSelection()" class="w-full mt-6 bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg shadow transition">
+            Send Selection via WhatsApp
+        </button>
+    </div>
+
+    <script>
+        // REPLACE THIS WITH YOUR ACTUAL GOOGLE SHEET CSV EXPORT LINK
+        const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQwWaiS8BAIcm8zqhn2fWTpeRJJpTJdAi9_JCNcy8cL15Ram2jtCuIpfyh76RFgllOYFKNdoimn68kk/pub?output=csv';
+
+        let products = [];
+
+        async function loadProducts() {
+            try {
+                const response = await fetch(SHEET_URL);
+                const data = await response.text();
+                
+                // Simple CSV parser
+                const rows = data.split('\n').slice(1); 
+                const container = document.getElementById('product-container');
+                container.innerHTML = '';
+
+                rows.forEach((row, index) => {
+                    const columns = row.split(',');
+                    if (columns.length < 5) return;
+
+                    const [id, name, imageUrl, price, status] = columns.map(col => col.trim());
+
+                    // ONLY show items marked as Pre-selection
+                    if (status.toLowerCase() === 'pre-selection') {
+                        products.push({ id, name, price });
+
+                        const card = `
+                            <label class="flex items-center p-3 border rounded-xl hover:bg-gray-50 cursor-pointer transition space-x-4">
+                                <input type="checkbox" value="${id}" class="w-5 h-5 text-green-600 rounded focus:ring-green-500">
+                                <img src="${imageUrl}" alt="${name}" class="w-16 h-16 object-cover rounded-lg bg-gray-200">
+                                <div class="flex-1">
+                                    <h3 class="font-semibold text-gray-800">${name}</h3>
+                                    <p class="text-sm text-gray-500">Resell: $${price}</p>
+                                </div>
+                            </label>
+                        `;
+                        container.innerHTML += card;
+                    }
+                });
+            } catch (error) {
+                document.getElementById('product-container').innerHTML = '<p class="text-red-500">Error loading products.</p>';
+            }
+        }
+
+        function sendSelection() {
+            const checkboxes = document.querySelectorAll('input[type="checkbox"]:checked');
+            if (checkboxes.length === 0) {
+                alert('Please select at least one product.');
+                return;
+            }
+
+            let message = "Selected Products:\n\n";
+            checkboxes.forEach(cb => {
+                const prod = products.find(p => p.id === cb.value);
+                if (prod) {
+                    message += `- ${prod.name} ($${prod.price})\n`;
+                }
+            });
+
+            // Creates a universal WhatsApp sharing link
+            const whatsappUrl = `https://wa.me{encodeURIComponent(message)}`;
+            window.open(whatsappUrl, '_blank');
+        }
+
+        // Run setup on load
+        loadProducts();
+    </script>
+</body>
+</html>

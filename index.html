@@ -31,9 +31,9 @@
     <script>
         let globalProducts = [];
 
-        // Injects data tag directly into the webpage code structure to bypass CORS browser security blocks completely
         function loadSheetDataNatively() {
             const sheetId = '1vQwWaiS8BAIcm8zqhn2fWTpeRJJpTJdAi9_JCNcy8cL15Ram2jtCuIpfyh76RFgllOYFKNdoimn68kk';
+            // Accesses the raw visualization table format directly to safely read spreadsheet arrays
             const endpoint = "https://google.com" + sheetId + "/gviz/tq?tqx=responseHandler:processGoogleJsonData&t=" + new Date().getTime();
             
             const script = document.createElement('script');
@@ -41,7 +41,6 @@
             document.body.appendChild(script);
         }
 
-        // Processing callback engine parsing cloud objects safely
         window.processGoogleJsonData = function(jsonResponse) {
             try {
                 if (!jsonResponse || !jsonResponse.table) {
@@ -49,8 +48,12 @@
                     return;
                 }
                 const table = jsonResponse.table;
-                const columnLabels = table.cols.map(c => c.label ? c.label.trim() : '');
                 
+                // Normalizes column headers case-insensitively, removing spaces and line-break variants automatically
+                const columnLabels = table.cols.map(c => {
+                    return c.label ? c.label.trim().toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+                });
+
                 const matrixRows = table.rows.map(r => {
                     const rowObj = {};
                     columnLabels.forEach((label, idx) => {
@@ -59,7 +62,7 @@
                     });
                     return rowObj;
                 });
-                renderCatalog(matrixRows);
+                renderCatalog(matrixRows, columnLabels);
             } catch (err) {
                 showErrorState("Parsing pipeline blueprint execution error.");
             }
@@ -83,14 +86,23 @@
             }
             return cleanUrl;
         }
-        function renderCatalog(rows) {
+        function renderCatalog(rows, normalizedLabels) {
             const container = document.getElementById('product-container');
             container.innerHTML = '';
             globalProducts = [];
 
-            // Filters database matrix to ONLY match rows where Status equals "Pre-selection"
+            // Dynamically search key locations inside structural normalized column data lists
+            const idKey = normalizedLabels.find(l => l === 'sku') || 'sku';
+            const collectionKey = normalizedLabels.find(l => l.includes('collectionname') || l.includes('collection')) || 'collectionname';
+            const nameKey = normalizedLabels.find(l => l.includes('sareename') || l.includes('sareenamenumber')) || 'sareenamenumber';
+            const priceKey = normalizedLabels.find(l => l.includes('resellprice')) || 'resellpricemur';
+            const imgKey = normalizedLabels.find(l => l.includes('googledrivesharelink') || l.includes('drive')) || 'googledrivesharelinkpastehere';
+            const statusKey = normalizedLabels.find(l => l === 'status') || 'status';
+            const notesKey = normalizedLabels.find(l => l === 'notes') || 'notes';
+
+            // Filters database matrix to ONLY match items where Status equals "pre-selection"
             const cleanRows = rows.filter(row => {
-                const statusValue = row['Status'] || '';
+                const statusValue = row[statusKey] || '';
                 return statusValue.toLowerCase() === 'pre-selection';
             });
 
@@ -104,19 +116,18 @@
             }
 
             cleanRows.forEach((row, index) => {
-                // Exact-string bindings matching your pricing masterfile columns
-                const id = row['SKU'] || ("N/A-" + index);
-                const collectionName = row['Collection Name'] || "Saree Collection";
-                const sareeName = row['Saree Name / Number'] || "Unnamed Piece";
-                const price = row['Resell Price\n (MUR)'] || row['Resell Price (MUR)'] || "0.00";
-                const notes = row['Notes'] || "";
+                const id = row[idKey] || ("N/A-" + index);
+                const collectionName = row[collectionKey] || "Saree Collection";
+                const sareeName = row[nameKey] || "Unnamed Piece";
+                const price = row[priceKey] || "0.00";
+                const notes = row[notesKey] || "";
                 
-                const rawImgUrl = row['Google Drive Share Link (paste here)'];
+                const rawImgUrl = row[imgKey];
                 const imgUrl = formatDriveImageUrl(rawImgUrl) || "https://unsplash.com";
 
                 globalProducts.push({ id: id, name: collectionName + " - " + sareeName, price: price });
 
-                // Constructs interactive product choice templates matching grid configurations
+                // Constructs interactive custom choice layouts using internal element styling rules
                 const cardHtml = `
                     <label style="display: flex; flex-direction: column; justify-content: space-between; padding: 20px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; cursor: pointer; box-sizing: border-box; transition: border-color 0.2s;" onmouseenter="this.style.borderColor='#10b981'" onmouseleave="this.style.borderColor='#e2e8f0'">
                         <div style="display: flex; align-items: start; gap: 12px; margin-bottom: 16px;">

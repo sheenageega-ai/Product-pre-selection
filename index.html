@@ -6,7 +6,7 @@
     <title>Saree Collection Selection Portal</title>
     <!-- Tailwind CSS for modern responsive card structures -->
     <script src="https://tailwindcss.com"></script>
-    <!-- Google Visualization API to flawlessly bypass browser security blocks -->
+    <!-- Google Charts Library to query the spreadsheet data safely -->
     <script src="https://gstatic.com"></script>
 </head>
 <body class="bg-slate-50 min-h-screen p-4 md:p-8">
@@ -21,7 +21,7 @@
         <div id="product-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             <div class="col-span-full text-center py-12">
                 <div class="inline-block w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                <p class="text-slate-400 font-medium">Synchronizing with Saree Masterfile...</p>
+                <p class="text-slate-400 font-medium animate-pulse">Synchronizing with Masterfile...</p>
             </div>
         </div>
 
@@ -36,15 +36,17 @@
     <script>
         let globalProducts = [];
 
-        // Load the Google visualization engine
+        // Load the Google visualization query script framework natively
         google.charts.load('current', {'packages':['corechart']});
         google.charts.setOnLoadCallback(loadSheetViaGoogleEngine);
 
         function loadSheetViaGoogleEngine() {
-            // Using your exact Sheet ID to tap directly into the secure visualization data query table
+            // Your exact core structural Google Sheet Key ID
             const sheetId = '1vQwWaiS8BAIcm8zqhn2fWTpeRJJpTJdAi9_JCNcy8cL15Ram2jtCuIpfyh76RFgllOYFKNdoimn68kk';
-            const query = new google.visualization.Query(`https://google.com{sheetId}/gviz/tq?headers=8`);
             
+            // Uses the raw query endpoint which reads row 8 as headers automatically
+            const queryUrl = 'https://google.com' + sheetId + '/gviz/tq?headers=8&t=' + new Date().getTime();
+            const query = new google.visualization.Query(queryUrl);
             query.send(handleQueryResponse);
         }
 
@@ -58,13 +60,12 @@
             const numRows = dataTable.getNumberOfRows();
             const numCols = dataTable.getNumberOfColumns();
 
-            // Read the column header titles dynamically from your row 8 configurations
+            // Read header rows dynamically from row 8 labels
             let headers = [];
             for (let c = 0; c < numCols; c++) {
                 headers.push(dataTable.getColumnLabel(c).trim());
             }
 
-            // Map data items out row by row cleanly
             let productRows = [];
             for (let r = 0; r < numRows; r++) {
                 let rowData = {};
@@ -79,7 +80,7 @@
             renderCatalog(productRows);
         }
 
-        // Custom parser to transform image url patterns into secure thumbnails
+        // Transforms image link keys safely into raw thumbnails
         function formatDriveImageUrl(rawUrl) {
             if (!rawUrl) return "";
             const cleanUrl = rawUrl.trim();
@@ -94,7 +95,9 @@
                 let fileId = "";
                 if (cleanUrl.includes('/d/')) {
                     const parts = cleanUrl.split('/d/');
-                    if (parts && parts[1]) fileId = parts[1].split('/')[0].split('?')[0];
+                    if (parts && parts[1]) {
+                        fileId = parts[1].split('/')[0].split('?')[0];
+                    }
                 }
                 if (fileId) return "https://googleusercontent.com" + fileId;
             }
@@ -106,7 +109,7 @@
             container.innerHTML = '';
             globalProducts = [];
 
-            // Filters the database to ONLY match items where Status column matches "Pre-selection"
+            // Case-insensitive clean filter scanning for rows matching 'Pre-selection'
             const cleanRows = rows.filter(row => {
                 const statusValue = row['Status'] || '';
                 return statusValue.toLowerCase() === 'pre-selection';
@@ -116,13 +119,13 @@
                 container.innerHTML = `
                     <div class="col-span-full text-center py-12 bg-slate-50 rounded-xl border border-dashed border-slate-200 px-4">
                         <p class="text-slate-500 font-semibold text-base">No active pre-selection items found.</p>
-                        <p class="text-xs text-slate-400 mt-1">Make sure row values are set to "Pre-selection" in your Status column rows.</p>
+                        <p class="text-xs text-slate-400 mt-1">Make sure you have typed "Pre-selection" in your spreadsheet rows under the Status column.</p>
                     </div>`;
                 return;
             }
 
             cleanRows.forEach((row, index) => {
-                // Strict exact-string header bindings matching your shared masterfile
+                // Strict exact-string header bindings matching your shared masterfile columns
                 const id = row['SKU'] || ("N/A-" + index);
                 const collectionName = row['Collection Name'] || "Saree Collection";
                 const sareeName = row['Saree Name / Number'] || "Unnamed Piece";
@@ -174,14 +177,12 @@
             window.open(targetUrl, '_blank');
         }
 
-                function showErrorState(reason) {
+        function showErrorState(reason) {
             document.getElementById('product-container').innerHTML = `
                 <div class="col-span-full text-center py-12 bg-red-50/50 border border-dashed border-red-200 rounded-xl px-4">
                     <p class="text-red-600 font-semibold text-base">Masterfile Synchronization Failure</p>
                     <p class="text-xs text-slate-400 mt-1">Trace Code: ${reason}</p>
-                    <p class="text-xs text-slate-400 mt-2 font-medium">Verify that the Google Sheet general access permissions are open to "Anyone with the link".</p>
-                </div>
-            `;
+  `;
         }
     </script>
 </body>

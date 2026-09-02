@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Committee Product Selection</title>
-    <!-- Tailwind CSS for robust mobile grid layouts -->
+    <!-- Tailwind CSS for robust mobile card grids -->
     <script src="https://tailwindcss.com"></script>
 </head>
 <body class="bg-slate-50 min-h-screen p-4 md:p-8">
@@ -15,14 +15,14 @@
             <p class="text-sm text-slate-500 mt-1">Review the pre-selected collections below and tick your choices to compile your response.</p>
         </div>
         
-        <!-- Product Grid Space -->
+        <!-- Target space where product cards populate -->
         <div id="product-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             <div class="col-span-full text-center py-12">
                 <p class="text-slate-400 font-medium animate-pulse">Synchronizing with Master Sheet...</p>
             </div>
         </div>
 
-        <!-- Submission Controls -->
+        <!-- Submission Trigger Hub -->
         <div class="mt-8 pt-4 border-t border-slate-100">
             <button onclick="sendSelection()" class="w-full flex items-center justify-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-4 px-4 rounded-xl shadow-sm transition-all focus:ring-4 focus:ring-emerald-100 text-base">
                 <span>Send Final Selection via WhatsApp</span>
@@ -33,43 +33,64 @@
     <script>
         let globalProducts = [];
 
-        // Advanced loading engine using public API routing to bypass cross-domain blocks natively
+        // Direct data pipeline using your exact Google Sheet ID sequence
         function loadSheetDataViaJSONP() {
-            const sheetId = '1vQwWaiS8BAIcm8zqhn2fWTpeRJJpTJdAi9_JCNcy8cL15Ram2jtCuIpfyh76RFgllOYFKNdoimn68kk';
-            const jsonpUrl = `https://google.com{sheetId}/gviz/tq?tqx=responseHandler:processData`;
+            const sheetId = '2PACX-1vQwWaiS8BAIcm8zqhn2fWTpeRJJpTJdAi9_JCNcy8cL15Ram2jtCuIpfyh76RFgllOYFKNdoimn68kk';
+            const jsonpUrl = `https://google.com{sheetId}/pub?gid=0&single=true&output=csv&t=` + new Date().getTime();
             
-            const script = document.createElement('script');
-            script.src = jsonpUrl;
-            document.body.appendChild(script);
+            fetch(jsonpUrl)
+                .then(response => {
+                    if (!response.ok) throw new Error("Stream failure");
+                    return response.text();
+                })
+                .then(textData => {
+                    processCSVText(textData);
+                })
+                .catch(err => {
+                    showErrorState("Network connection block or invalid spreadsheet sharing configurations.");
+                });
         }
 
-        // Processing loop designed to parse structural cloud cells securely
-        window.processData = function(response) {
+        function processCSVText(textData) {
             try {
-                const data = response.table;
-                const columns = data.cols.map(c => c.label ? c.label.trim().toLowerCase() : '');
-                
-                // Identify target cell positions dynamically
-                const idIdx = columns.findIndex(c => c.includes('sku') || c.includes('id'));
-                const nameIdx = columns.findIndex(c => c.includes('collectionname') || c.includes('name'));
-                const priceIdx = columns.findIndex(c => c.includes('resellprice') || c.includes('price'));
-                const imgIdx = columns.findIndex(c => c.includes('imageurl') || c.includes('picture') || c.includes('link'));
-                const statusIdx = columns.findIndex(c => c.includes('status'));
+                const lines = textData.split(/\r?\n/);
+                if (lines.length <= 1) {
+                    showErrorState("The Google Sheet database returns an empty dataset.");
+                    return;
+                }
 
-                const rows = data.rows.map(r => {
-                    const obj = {};
-                    columns.forEach((col, idx) => {
-                        const cell = r.c[idx];
-                        obj[col] = cell ? (cell.v !== null ? cell.v.toString() : '') : '';
+                const headers = parseCSVLine(lines[0]);
+                const rows = [];
+
+                for (let i = 1; i < lines.length; i++) {
+                    if (!lines[i].trim()) continue;
+                    const values = parseCSVLine(lines[i]);
+                    const rowData = {};
+                    headers.forEach((header, index) => {
+                        const cleanHeader = header.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+                        rowData[cleanHeader] = values[index] ? values[index].trim() : '';
                     });
-                    return obj;
-                });
+                    rows.push(rowData);
+                }
 
-                renderCatalog(rows, columns, idIdx, nameIdx, priceIdx, imgIdx, statusIdx);
+                renderCatalog(rows);
             } catch (e) {
-                showErrorState("Parsing data failure.");
+                showErrorState("Parsing data rows failure.");
             }
-        };
+        }
+
+        function parseCSVLine(text) {
+            let p = '', c = [];
+            let q = false;
+            for (let i = 0; i < text.length; i++) {
+                let char = text[i];
+                if (char === '"') { q = !q; }
+                else if (char === ',' && !q) { c.push(p); p = ''; }
+                else { p += char; }
+            }
+            c.push(p);
+            return c;
+        }
 
         function formatDriveImageUrl(rawUrl) {
             if (!rawUrl) return "";
@@ -78,28 +99,46 @@
                 let fileId = "";
                 if (cleanUrl.includes('/d/')) {
                     const parts = cleanUrl.split('/d/');
-                    if (parts && parts[1]) fileId = parts[1].split('/')[0].split('?')[0];
+                    if (parts && parts[1]) {
+                        fileId = parts[1].split('/')[0].split('?')[0];
+                    }
                 } else if (cleanUrl.includes('id=')) {
                     const parts = cleanUrl.split('id=');
-                    if (parts && parts[1]) fileId = parts[1].split('&')[0];
+                    if (parts && parts[1]) {
+                        fileId = parts[1].split('&')[0];
+                    }
                 }
                 if (fileId) return `https://googleusercontent.com{fileId}`;
             }
             return cleanUrl;
         }
 
-        function renderCatalog(rows, columns, idIdx, nameIdx, priceIdx, imgIdx, statusIdx) {
+        function findKey(row, keywords) {
+            const keys = Object.keys(row);
+            for (let kw of keywords) {
+                const found = keys.find(k => k.includes(kw));
+                if (found) return found;
+            }
+            return keys[0];
+        }
+
+        function renderCatalog(rows) {
             const container = document.getElementById('product-container');
             container.innerHTML = '';
             globalProducts = [];
 
-            const idKey = columns[idIdx] || 'sku';
-            const nameKey = columns[nameIdx] || 'collection name';
-            const priceKey = columns[priceIdx] || 'resell price (mur)';
-            const imgKey = columns[imgIdx] || 'image url';
-            const statusKey = columns[statusIdx] || 'status';
+            if (rows.length === 0) {
+                showErrorState("No data records could be parsed.");
+                return;
+            }
 
-            // Filter out products matching the active Pre-selection status label
+            const sampleRow = rows[0];
+            const statusKey = findKey(sampleRow, ['status', 'preselection']);
+            const idKey = findKey(sampleRow, ['sku', 'id', 'unique']);
+            const nameKey = findKey(sampleRow, ['collectionname', 'productname', 'name']);
+            const priceKey = findKey(sampleRow, ['resellpricemur', 'resellprice', 'price']);
+            const imgKey = findKey(sampleRow, ['imageurl', 'googledrive', 'picture', 'link']);
+
             const cleanRows = rows.filter(row => {
                 const val = row[statusKey] || '';
                 return val.toLowerCase().includes('pre-selection') || val.toLowerCase().includes('preselection');
@@ -161,11 +200,12 @@
             window.open(targetUrl, '_blank');
         }
 
-        function showErrorState(reason) {
+       function showErrorState(reason) {
             document.getElementById('product-container').innerHTML = `
                 <div class="col-span-full text-center py-12 bg-red-50/50 border border-dashed border-red-200 rounded-xl px-4">
                     <p class="text-red-600 font-semibold text-base">Database Sync Error</p>
                     <p class="text-xs text-slate-400 mt-1">Reason: ${reason}</p>
+                    <p class="text-xs text-slate-400 mt-2 font-medium">Verify that your Sheet is published to the web as a CSV document, and your headers are written correctly.</p>
                 </div>
             `;
         }

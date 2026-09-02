@@ -31,93 +31,78 @@
     <script>
         let globalProducts = [];
 
-        async function loadSheetDataDirectly() {
-            // Using your verified public web-published CSV URL feed path directly
-            const csvUrl = 'https://google.com' + new Date().getTime();
+        // Dynamic JSONP tag routine forcing browsers to download the Google Sheet rows seamlessly
+        function loadSheetDataNatively() {
+            const sheetId = '1vQwWaiS8BAIcm8zqhn2fWTpeRJJpTJdAi9_JCNcy8cL15Ram2jtCuIpfyh76RFgllOYFKNdoimn68kk';
+            const endpoint = "https://google.com" + sheetId + "/gviz/tq?tqx=responseHandler:processGoogleJsonData&t=" + new Date().getTime();
             
+            const script = document.createElement('script');
+            script.src = endpoint;
+            document.body.appendChild(script);
+        }
+
+        window.processGoogleJsonData = function(jsonResponse) {
             try {
-                const response = await fetch(csvUrl);
-                if (!response.ok) throw new Error("Connection failed");
-                const textData = await response.text();
-                
-                const lines = textData.split(/\r?\n/);
-                
-                // SKIPS the 7 introductory data metadata lines in your spreadsheet masterfile
-                const headerIndex = 7; 
-                if (lines.length <= headerIndex) {
-                    showErrorState("The Google Sheet database layout contains missing values.");
+                if (!jsonResponse || !jsonResponse.table) {
+                    showErrorState("Empty layout data block returned.");
                     return;
                 }
+                const table = jsonResponse.table;
+                
+                // Read sheet header values case-insensitively, automatically scrubbing column labels clean
+                const columnLabels = table.cols.map(c => {
+                    return c.label ? c.label.trim().toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+                });
 
-                // Parse the header row directly from line index 8
-                const headers = parseCSVLine(lines[headerIndex]);
-                const rows = [];
-
-                for (let i = headerIndex + 1; i < lines.length; i++) {
-                    if (!lines[i].trim()) continue;
-                    const values = parseCSVLine(lines[i]);
-                    const rowData = {};
-                    headers.forEach((header, index) => {
-                        // Normalize keys by cleaning spaces, case variants, and special symbols dynamically
-                        const cleanKey = header.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-                        rowData[cleanKey] = values[index] ? values[index].trim() : '';
+                const matrixRows = table.rows.map(r => {
+                    const rowObj = {};
+                    columnLabels.forEach((label, idx) => {
+                        const cell = r.c[idx];
+                        rowObj[label] = cell ? (cell.v !== null ? cell.v.toString().trim() : '') : '';
                     });
-                    rows.push(rowData);
-                }
-
-                renderCatalog(rows);
-
-            } catch (error) {
-                showErrorState("Network connection block or uninitialized CSV file stream pipeline.");
+                    return rowObj;
+                });
+                renderCatalog(matrixRows, columnLabels);
+            } catch (err) {
+                showErrorState("Parsing pipeline blueprint execution error.");
             }
-        }
-
-        function parseCSVLine(text) {
-            let p = '', c = [];
-            let q = false;
-            for (let i = 0; i < text.length; i++) {
-                let char = text[i];
-                if (char === '"') { q = !q; }
-                else if (char === ',' && !q) { c.push(p); p = ''; }
-                else { p += char; }
-            }
-            c.push(p);
-            return c;
-        }
+        };
 
         function formatDriveImageUrl(rawUrl) {
             if (!rawUrl) return "";
             const cleanUrl = rawUrl.trim();
-            
-            // Extracts raw unique IDs if they use the public shorthand path pattern
-            if (cleanUrl.includes('googleusercontent.com')) {
-                const fileId = cleanUrl.replace('https://googleusercontent.com', '').trim();
+            const driveKeyIndex = cleanUrl.indexOf("com1");
+            if (driveKeyIndex !== -1) {
+                const fileId = cleanUrl.substring(driveKeyIndex + 4).trim();
                 return "https://googleusercontent.com" + fileId;
             }
-            
             if (cleanUrl.includes('://google.com')) {
                 let fileId = "";
                 if (cleanUrl.includes('/d/')) {
                     const parts = cleanUrl.split('/d/');
-                    if (parts && parts[1]) fileId = parts[1].split('/')[0].split('?')[0];
+                    if (parts && parts) fileId = parts.split('/').split('?');
                 }
                 if (fileId) return "https://googleusercontent.com" + fileId;
             }
             return cleanUrl;
         }
-        function renderCatalog(rows) {
+        function renderCatalog(rows, normalizedLabels) {
             const container = document.getElementById('product-container');
             container.innerHTML = '';
             globalProducts = [];
 
-            if (rows.length === 0) {
-                showErrorState("No data records could be parsed from sheet matrix.");
-                return;
-            }
+            // Locating key properties dynamically using keyword target strings
+            const idKey = normalizedLabels.find(l => l === 'sku') || 'sku';
+            const collectionKey = normalizedLabels.find(l => l.includes('collectionname') || l.includes('collection')) || 'collectionname';
+            const nameKey = normalizedLabels.find(l => l.includes('sareename') || l.includes('sareenamenumber')) || 'sareenamenumber';
+            const priceKey = normalizedLabels.find(l => l.includes('resellprice')) || 'resellpricemur';
+            const imgKey = normalizedLabels.find(l => l.includes('googledrivesharelink') || l.includes('drive')) || 'googledrivesharelinkpastehere';
+            const statusKey = normalizedLabels.find(l => l === 'status') || 'status';
+            const notesKey = normalizedLabels.find(l => l === 'notes') || 'notes';
 
-            // Filters database fields dynamically matching the phrase "pre-selection" case-insensitively
+            // Filter rows strictly tracking the phrase "pre-selection"
             const cleanRows = rows.filter(row => {
-                const statusValue = row['status'] || '';
+                const statusValue = row[statusKey] || '';
                 return statusValue.toLowerCase() === 'pre-selection';
             });
 
@@ -131,19 +116,17 @@
             }
 
             cleanRows.forEach((row, index) => {
-                // Property extraction targeting normalized lower-case headers dynamically
-                const id = row['sku'] || ("N/A-" + index);
-                const collectionName = row['collectionname'] || "Saree Collection";
-                const sareeName = row['sareenamenumber'] || "Unnamed Piece";
-                const price = row['resellpricemur'] || "0.00";
-                const notes = row['notes'] || "";
+                const id = row[idKey] || ("N/A-" + index);
+                const collectionName = row[collectionKey] || "Saree Collection";
+                const sareeName = row[nameKey] || "Unnamed Piece";
+                const price = row[priceKey] || "0.00";
+                const notes = row[notesKey] || "";
                 
-                const rawImgUrl = row['googledrivesharelinkpastehere'] || row['imageurlautogenerated'];
+                const rawImgUrl = row[imgKey];
                 const imgUrl = formatDriveImageUrl(rawImgUrl) || "https://unsplash.com";
 
                 globalProducts.push({ id: id, name: collectionName + " - " + sareeName, price: price });
 
-                // Construct clean card layout utilizing inline elements to guarantee layout consistency
                 const cardHtml = `
                     <label style="display: flex; flex-direction: column; justify-content: space-between; padding: 20px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; cursor: pointer; box-sizing: border-box; transition: border-color 0.2s;">
                         <div style="display: flex; align-items: start; gap: 12px; margin-bottom: 16px;">
@@ -155,10 +138,10 @@
                                 <p style="font-size: 16px; font-weight: 800; color: #059669; margin: 6px 0 0 0;">MUR ${price}</p>
                             </div>
                         </div>
-                        <div style="width: 100%; height: 230px; background-color: #f8fafc; border: 1px solid #f1f5f9; border-radius: 12px; overflow: hidden; margin-top: auto;">
+                        <div style="width: 100%; height: 220px; background-color: #f8fafc; border: 1px solid #f1f5f9; border-radius: 12px; overflow: hidden; margin-top: auto;">
                             <img src="${imgUrl}" alt="${sareeName}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='https://unsplash.com'">
                         </div>
-                        ${notes ? `<p style="font-size: 11px; color: #94a3b8; margin: 12px 0 0 0; border-top: 1px solid #f1f5f9; padding-top: 8px; font-style: italic;">${notes}</p>` : ''}
+                        ${notes ? `<p style="font-size: 11px; color: #94a3b8; margin: 12px 0 0 0; border-top: 1px solid #f1f5f9; padding-top: 8px; font-style: italic; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${notes}</p>` : ''}
                     </label>
                 `;
                 container.innerHTML += cardHtml;
@@ -187,13 +170,13 @@
         function showErrorState(reason) {
             document.getElementById('product-container').innerHTML = `
                 <div style="grid-column: 1 / -1; text-align: center; padding: 48px 20px; background-color: #fef2f2; border-radius: 12px; border: 1px dashed #fca5a5;">
-                    <p style="color: #dc2626; font-weight: 600; font-size: 16px; margin: 0;">Masterfile Sync Interrupted</p>
+                    <p style="color: #dc2626; font-weight: 600; font-size: 16px; margin: 0;">Masterfile Connection Failure</p>
                     <p style="color: #ef4444; font-size: 12px; margin: 5px 0 0 0;">Trace Code: ${reason}</p>
                 </div>
             `;
         }
 
-        loadSheetDataDirectly();
+        loadSheetDataNatively();
     </script>
 </body>
 </html>

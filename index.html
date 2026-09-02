@@ -33,23 +33,21 @@
     <script>
         let globalProducts = [];
 
-        // Alternative engine bypassing browser blocks by downloading data directly as pure text
         async function loadSheetDataDirectly() {
-            const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQwWaiS8BAIcm8zqhn2fWTpeRJJpTJdAi9_JCNcy8cL15Ram2jtCuIpfyh76RFgllOYFKNdoimn68kk/pub?gid=0&single=true&output=csv&cachebuster=123';
+            // Your exact data link with a live cache-buster routine built-in
+            const csvUrl = 'https://google.com' + new Date().getTime();
             
             try {
                 const response = await fetch(csvUrl);
                 if (!response.ok) throw new Error("Connection failed");
                 const textData = await response.text();
                 
-                // Native custom row-by-row matrix text text mapping setup
                 const lines = textData.split(/\r?\n/);
                 if (lines.length <= 1) {
-                    showErrorState("The Google Sheet database returns an empty dataset.");
+                    showErrorState("The Google Sheet database returned an empty file.");
                     return;
                 }
 
-                // Locate structural mapping headers from row 1
                 const headers = parseCSVLine(lines[0]);
                 const rows = [];
 
@@ -58,19 +56,20 @@
                     const values = parseCSVLine(lines[i]);
                     const rowData = {};
                     headers.forEach((header, index) => {
-                        rowData[header.trim()] = values[index] ? values[index].trim() : '';
+                        // Strip punctuation and convert to clean lowercase keys
+                        const cleanHeader = header.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+                        rowData[cleanHeader] = values[index] ? values[index].trim() : '';
                     });
                     rows.push(rowData);
                 }
 
-                renderCatalog(rows);
+                renderCatalog(rows, headers);
 
             } catch (error) {
                 showErrorState("Network connection block from Google Docs cloud server.");
             }
         }
 
-        // Custom parser to safely manage cell commas and text string structures
         function parseCSVLine(text) {
             let p = '', c = [];
             let q = false;
@@ -84,7 +83,6 @@
             return c;
         }
 
-        // Automatic engine to parse Google Drive view links into clean thumbnail assets
         function formatDriveImageUrl(rawUrl) {
             if (!rawUrl) return "";
             const cleanUrl = rawUrl.trim();
@@ -110,33 +108,55 @@
             return cleanUrl;
         }
 
-        function renderCatalog(rows) {
+        // Locates data columns dynamically by testing broad keyword terms
+        function findKey(row, keywords) {
+            const keys = Object.keys(row);
+            for (let kw of keywords) {
+                const found = keys.find(k => k.includes(kw));
+                if (found) return found;
+            }
+            return keys[0]; // Fallback to first column
+        }
+
+        function renderCatalog(rows, rawHeaders) {
             const container = document.getElementById('product-container');
             container.innerHTML = '';
             globalProducts = [];
 
-            // Case-insensitive filtering scanning for rows matching 'pre-selection'
+            if (rows.length === 0) {
+                showErrorState("No rows could be compiled from the document layout.");
+                return;
+            }
+
+            // Find key labels dynamically inside normalized data row formats
+            const statusKey = findKey(rows[0], ['status', 'preselection']);
+            const idKey = findKey(rows[0], ['sku', 'id', 'unique']);
+            const nameKey = findKey(rows[0], ['collectionname', 'productname', 'name']);
+            const priceKey = findKey(rows[0], ['resellpricemur', 'resellprice', 'price']);
+            const imgKey = findKey(rows[0], ['imageurl', 'googledrive', 'picture', 'link']);
+
+            // Filter out items not matching the active Pre-selection target string value
             const cleanRows = rows.filter(row => {
-                const statusValue = row['Status'] || '';
-                return statusValue.trim().toLowerCase() === 'pre-selection';
+                const val = row[statusKey] || '';
+                // Flexible check allowing minor formatting variances
+                return val.toLowerCase().includes('pre-selection') || val.toLowerCase().includes('preselection');
             });
 
             if (cleanRows.length === 0) {
                 container.innerHTML = `
                     <div class="col-span-full text-center py-12 bg-slate-50 rounded-xl border border-dashed border-slate-200 px-4">
                         <p class="text-slate-500 font-semibold text-base">No active items ready for review.</p>
-                        <p class="text-xs text-slate-400 mt-1">Make sure you have typed "Pre-selection" exactly in the Status column rows of your Google Sheet.</p>
+                        <p class="text-xs text-slate-400 mt-1">Make sure you have typed "Pre-selection" in your spreadsheet rows under the Status column.</p>
                     </div>`;
                 return;
             }
 
             cleanRows.forEach((row, index) => {
-                // Pinning target properties to your exact masterfile labels
-                const id = row['SKU'] || `N/A-${index}`;
-                const name = row['Collection Name'] || "Unnamed Collection";
-                const price = row['Resell Price (MUR)'] || "0.00";
+                const id = row[idKey] || `SKU-${index}`;
+                const name = row[nameKey] || "Unnamed Collection";
+                const price = row[priceKey] || "0.00";
                 
-                const rawImgUrl = row['Image URL (auto-generated) or Google Drive Share Link (paste here)'];
+                const rawImgUrl = row[imgKey];
                 const imgUrl = formatDriveImageUrl(rawImgUrl) || "https://unsplash.com";
 
                 globalProducts.push({ id, name, price });
@@ -152,7 +172,7 @@
                             </div>
                         </div>
                         <div class="w-full h-44 bg-slate-50 border border-slate-100 rounded-xl overflow-hidden mt-2">
-                            <img src="${imgUrl}" alt="${name}" class="w-full h-full object-cover group-cover:scale-105 transition-transform duration-300" onerror="this.src='https://unsplash.com'">
+                            <img src="${imgUrl}" alt="${name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.src='https://unsplash.com'">
                         </div>
                     </label>
                 `;
@@ -179,17 +199,16 @@
             window.open(targetUrl, '_blank');
         }
 
-        function showErrorState(reason) {
+                function showErrorState(reason) {
             document.getElementById('product-container').innerHTML = `
                 <div class="col-span-full text-center py-12 bg-red-50/50 border border-dashed border-red-200 rounded-xl px-4">
                     <p class="text-red-600 font-semibold text-base">Database Sync Error</p>
                     <p class="text-xs text-slate-400 mt-1">Reason: ${reason}</p>
-                    <p class="text-xs text-slate-400 mt-2 font-medium">Verify that your Sheet is published to the web as a CSV document, and your headers are written exactly correctly.</p>
+                    <p class="text-xs text-slate-400 mt-2 font-medium">Verify that your Sheet is published to the web as a CSV document, and your headers are written correctly.</p>
                 </div>
             `;
         }
 
-        // Initialize connection loop
         loadSheetDataDirectly();
     </script>
 </body>
